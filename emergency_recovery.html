@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Emergency Data Recovery</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .recovery-btn { background: #28a745; }
+        .recovery-btn:hover { background: #1e7e34; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; max-height: 400px; }
+        .data-item { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 3px; border-left: 4px solid #007bff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 Emergency Data Recovery</h1>
+        <p><strong>Your data was accidentally deleted during a system update.</strong> This tool will help us try to recover it.</p>
+        
+        <div class="section warning">
+            <h3>⚠️ What Happened</h3>
+            <p>During the theming system revert, an error handler automatically cleared all localStorage data, including your business and personal projects. This was a critical bug that has now been fixed.</p>
+        </div>
+        
+        <div class="section info">
+            <h3>Step 1: Check for Any Remaining Data</h3>
+            <button onclick="checkForAnyData()">Search for Any Data</button>
+            <div id="anyDataResult"></div>
+        </div>
+        
+        <div class="section info">
+            <h3>Step 2: Check Browser Cache/Backup</h3>
+            <button onclick="checkBrowserBackup()">Check Browser Backup</button>
+            <div id="backupResult"></div>
+        </div>
+        
+        <div class="section info">
+            <h3>Step 3: Manual Data Entry</h3>
+            <p>If we can't recover your data automatically, you can manually recreate your projects:</p>
+            <button onclick="showManualEntry()">Manual Data Entry</button>
+            <div id="manualEntryResult"></div>
+        </div>
+        
+        <div class="section success">
+            <h3>Step 4: Data Recovery (If Found)</h3>
+            <button class="recovery-btn" onclick="attemptDataRecovery()" style="display: none;" id="recoveryBtn">Recover Found Data</button>
+            <div id="recoveryResult"></div>
+        </div>
+    </div>
+
+    <script>
+        let foundData = null;
+        
+        function checkForAnyData() {
+            const resultDiv = document.getElementById('anyDataResult');
+            resultDiv.innerHTML = '<p>Searching for any remaining data...</p>';
+            
+            try {
+                // Check all possible storage locations
+                const allKeys = Object.keys(localStorage);
+                const sessionKeys = Object.keys(sessionStorage);
+                
+                let html = `<h4>Storage Analysis:</h4>`;
+                html += `<p>LocalStorage keys: ${allKeys.length}</p>`;
+                html += `<p>SessionStorage keys: ${sessionKeys.length}</p>`;
+                
+                if (allKeys.length > 0) {
+                    html += `<h4>Remaining LocalStorage Keys:</h4>`;
+                    allKeys.forEach(key => {
+                        const value = localStorage.getItem(key);
+                        html += `<div class="data-item">`;
+                        html += `<strong>${key}:</strong> ${value ? value.length + ' characters' : 'empty'}`;
+                        if (value && value.length < 500) {
+                            html += `<br><pre>${value}</pre>`;
+                        }
+                        html += `</div>`;
+                    });
+                }
+                
+                // Check for any data that might be recoverable
+                let recoverableData = null;
+                allKeys.forEach(key => {
+                    const value = localStorage.getItem(key);
+                    if (value && isJsonString(value)) {
+                        try {
+                            const parsed = JSON.parse(value);
+                            if (parsed && (parsed.folders || parsed.projects || parsed.projectData)) {
+                                recoverableData = { key, data: parsed };
+                            }
+                        } catch (e) {}
+                    }
+                });
+                
+                if (recoverableData) {
+                    html += `<h4>🎯 Found Recoverable Data!</h4>`;
+                    html += `<p>Data found in key: <strong>${recoverableData.key}</strong></p>`;
+                    html += `<pre>${JSON.stringify(recoverableData.data, null, 2)}</pre>`;
+                    foundData = recoverableData;
+                    document.getElementById('recoveryBtn').style.display = 'inline-block';
+                } else {
+                    html += `<p>No recoverable data found in localStorage.</p>`;
+                }
+                
+                resultDiv.innerHTML = html;
+                resultDiv.className = 'section success';
+            } catch (error) {
+                resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+                resultDiv.className = 'section error';
+            }
+        }
+        
+        function checkBrowserBackup() {
+            const resultDiv = document.getElementById('backupResult');
+            resultDiv.innerHTML = '<p>Checking browser backup options...</p>';
+            
+            // Check if browser has any backup mechanisms
+            let html = `<h4>Browser Backup Check:</h4>`;
+            
+            // Check IndexedDB
+            if ('indexedDB' in window) {
+                html += `<p>✅ IndexedDB available</p>`;
+                // Try to check for any IndexedDB data
+                const request = indexedDB.databases();
+                request.then(databases => {
+                    if (databases.length > 0) {
+                        html += `<p>Found ${databases.length} IndexedDB databases:</p>`;
+                        databases.forEach(db => {
+                            html += `<p>- ${db.name} (version ${db.version})</p>`;
+                        });
+                    } else {
+                        html += `<p>No IndexedDB databases found</p>`;
+                    }
+                    resultDiv.innerHTML = html;
+                }).catch(error => {
+                    html += `<p>Error checking IndexedDB: ${error.message}</p>`;
+                    resultDiv.innerHTML = html;
+                });
+            } else {
+                html += `<p>❌ IndexedDB not available</p>`;
+            }
+            
+            // Check for any cached data
+            if ('caches' in window) {
+                html += `<p>✅ Cache API available</p>`;
+                caches.keys().then(cacheNames => {
+                    if (cacheNames.length > 0) {
+                        html += `<p>Found ${cacheNames.length} caches:</p>`;
+                        cacheNames.forEach(name => {
+                            html += `<p>- ${name}</p>`;
+                        });
+                    } else {
+                        html += `<p>No caches found</p>`;
+                    }
+                    resultDiv.innerHTML = html;
+                }).catch(error => {
+                    html += `<p>Error checking caches: ${error.message}</p>`;
+                    resultDiv.innerHTML = html;
+                });
+            } else {
+                html += `<p>❌ Cache API not available</p>`;
+            }
+            
+            resultDiv.className = 'section info';
+        }
+        
+        function showManualEntry() {
+            const resultDiv = document.getElementById('manualEntryResult');
+            resultDiv.innerHTML = `
+                <h4>Manual Data Recreation</h4>
+                <p>Since we can't recover your data automatically, you can recreate your projects manually:</p>
+                <div style="margin: 20px 0;">
+                    <h5>Your Previous Structure:</h5>
+                    <ul>
+                        <li><strong>Business Folder:</strong> Multiple projects</li>
+                        <li><strong>Personal Folder:</strong> 1 project</li>
+                    </ul>
+                </div>
+                <div style="margin: 20px 0;">
+                    <h5>Steps to Recreate:</h5>
+                    <ol>
+                        <li>Go back to the main app</li>
+                        <li>Create a new folder called "Business"</li>
+                        <li>Create a new folder called "Personal"</li>
+                        <li>Add your projects to the appropriate folders</li>
+                        <li>Recreate your tasks</li>
+                    </ol>
+                </div>
+                <button onclick="window.open('/', '_blank')">Go to Main App</button>
+            `;
+            resultDiv.className = 'section info';
+        }
+        
+        async function attemptDataRecovery() {
+            if (!foundData) {
+                alert('No data found to recover');
+                return;
+            }
+            
+            const resultDiv = document.getElementById('recoveryResult');
+            resultDiv.innerHTML = '<p>Attempting data recovery...</p>';
+            
+            try {
+                const token = localStorage.getItem('todoAppToken');
+                if (!token) {
+                    throw new Error('No authentication token found. Please log in first.');
+                }
+                
+                const response = await fetch('/api/user/data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(foundData.data)
+                });
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <h4>✅ Data Recovery Successful!</h4>
+                        <p>Your projects and tasks have been restored!</p>
+                        <p>Please refresh the main app to see your data.</p>
+                        <button onclick="window.open('/', '_blank')">Go to Main App</button>
+                    `;
+                    resultDiv.className = 'section success';
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(`Server error: ${errorData.error || 'Unknown error'}`);
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p>❌ Recovery failed: ${error.message}</p>`;
+                resultDiv.className = 'section error';
+            }
+        }
+        
+        function isJsonString(str) {
+            try {
+                JSON.parse(str);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+    </script>
+</body>
+</html>

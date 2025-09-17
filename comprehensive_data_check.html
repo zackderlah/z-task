@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Comprehensive Data Check</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; max-height: 400px; }
+        .key-item { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Comprehensive Data Recovery Check</h1>
+        <p>This tool will check ALL possible locations where your data might be stored.</p>
+        
+        <div class="section info">
+            <h3>Step 1: Check ALL Local Storage Keys</h3>
+            <button onclick="checkAllLocalStorage()">Check All Local Storage</button>
+            <div id="allStorageResult"></div>
+        </div>
+        
+        <div class="section info">
+            <h3>Step 2: Check Session Storage</h3>
+            <button onclick="checkSessionStorage()">Check Session Storage</button>
+            <div id="sessionStorageResult"></div>
+        </div>
+        
+        <div class="section info">
+            <h3>Step 3: Check IndexedDB</h3>
+            <button onclick="checkIndexedDB()">Check IndexedDB</button>
+            <div id="indexedDBResult"></div>
+        </div>
+        
+        <div class="section info">
+            <h3>Step 4: Check Server Database</h3>
+            <button onclick="checkServerData()">Check Server Data</button>
+            <div id="serverDataResult"></div>
+        </div>
+        
+        <div class="section warning">
+            <h3>Step 5: Manual Data Recovery</h3>
+            <p>If data is found, we can recover it manually.</p>
+            <button onclick="attemptRecovery()">Attempt Recovery</button>
+            <div id="recoveryResult"></div>
+        </div>
+    </div>
+
+    <script>
+        function checkAllLocalStorage() {
+            const resultDiv = document.getElementById('allStorageResult');
+            resultDiv.innerHTML = '<p>Checking all local storage keys...</p>';
+            
+            try {
+                const allKeys = Object.keys(localStorage);
+                let html = `<h4>All Local Storage Keys (${allKeys.length} total):</h4>`;
+                
+                if (allKeys.length === 0) {
+                    html += '<p>No keys found in local storage.</p>';
+                } else {
+                    allKeys.forEach(key => {
+                        const value = localStorage.getItem(key);
+                        const isJson = isJsonString(value);
+                        html += `<div class="key-item">`;
+                        html += `<strong>Key:</strong> ${key}<br>`;
+                        html += `<strong>Type:</strong> ${isJson ? 'JSON' : 'String'}<br>`;
+                        html += `<strong>Length:</strong> ${value ? value.length : 0} characters<br>`;
+                        if (value && value.length < 1000) {
+                            html += `<strong>Value:</strong><br><pre>${value}</pre>`;
+                        } else if (value) {
+                            html += `<strong>Value (truncated):</strong><br><pre>${value.substring(0, 500)}...</pre>`;
+                        }
+                        html += `</div>`;
+                    });
+                }
+                
+                resultDiv.innerHTML = html;
+                resultDiv.className = 'section success';
+            } catch (error) {
+                resultDiv.innerHTML = `<p>Error checking local storage: ${error.message}</p>`;
+                resultDiv.className = 'section error';
+            }
+        }
+        
+        function checkSessionStorage() {
+            const resultDiv = document.getElementById('sessionStorageResult');
+            resultDiv.innerHTML = '<p>Checking session storage...</p>';
+            
+            try {
+                const allKeys = Object.keys(sessionStorage);
+                let html = `<h4>Session Storage Keys (${allKeys.length} total):</h4>`;
+                
+                if (allKeys.length === 0) {
+                    html += '<p>No keys found in session storage.</p>';
+                } else {
+                    allKeys.forEach(key => {
+                        const value = sessionStorage.getItem(key);
+                        html += `<div class="key-item">`;
+                        html += `<strong>Key:</strong> ${key}<br>`;
+                        html += `<strong>Value:</strong><br><pre>${value}</pre>`;
+                        html += `</div>`;
+                    });
+                }
+                
+                resultDiv.innerHTML = html;
+                resultDiv.className = 'section success';
+            } catch (error) {
+                resultDiv.innerHTML = `<p>Error checking session storage: ${error.message}</p>`;
+                resultDiv.className = 'section error';
+            }
+        }
+        
+        function checkIndexedDB() {
+            const resultDiv = document.getElementById('indexedDBResult');
+            resultDiv.innerHTML = '<p>Checking IndexedDB...</p>';
+            
+            try {
+                if ('indexedDB' in window) {
+                    const request = indexedDB.databases();
+                    request.then(databases => {
+                        let html = `<h4>IndexedDB Databases (${databases.length} total):</h4>`;
+                        
+                        if (databases.length === 0) {
+                            html += '<p>No IndexedDB databases found.</p>';
+                        } else {
+                            databases.forEach(db => {
+                                html += `<div class="key-item">`;
+                                html += `<strong>Database:</strong> ${db.name}<br>`;
+                                html += `<strong>Version:</strong> ${db.version}<br>`;
+                                html += `</div>`;
+                            });
+                        }
+                        
+                        resultDiv.innerHTML = html;
+                        resultDiv.className = 'section success';
+                    }).catch(error => {
+                        resultDiv.innerHTML = `<p>Error checking IndexedDB: ${error.message}</p>`;
+                        resultDiv.className = 'section error';
+                    });
+                } else {
+                    resultDiv.innerHTML = '<p>IndexedDB not supported in this browser.</p>';
+                    resultDiv.className = 'section warning';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p>Error checking IndexedDB: ${error.message}</p>`;
+                resultDiv.className = 'section error';
+            }
+        }
+        
+        async function checkServerData() {
+            const resultDiv = document.getElementById('serverDataResult');
+            resultDiv.innerHTML = '<p>Checking server data...</p>';
+            
+            try {
+                const token = localStorage.getItem('todoAppToken');
+                if (!token) {
+                    resultDiv.innerHTML = '<p>No authentication token found. Please log in first.</p>';
+                    resultDiv.className = 'section warning';
+                    return;
+                }
+                
+                const response = await fetch('/api/user/data', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<h4>Server Data Found:</h4><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    resultDiv.className = 'section success';
+                } else {
+                    const errorData = await response.json();
+                    resultDiv.innerHTML = `<p>Server error: ${errorData.error || 'Unknown error'}</p>`;
+                    resultDiv.className = 'section error';
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p>Error checking server data: ${error.message}</p>`;
+                resultDiv.className = 'section error';
+            }
+        }
+        
+        function attemptRecovery() {
+            const resultDiv = document.getElementById('recoveryResult');
+            resultDiv.innerHTML = '<p>Attempting data recovery...</p>';
+            
+            try {
+                // Look for any data that might contain projects
+                const allKeys = Object.keys(localStorage);
+                let foundData = null;
+                
+                for (const key of allKeys) {
+                    const value = localStorage.getItem(key);
+                    if (value && isJsonString(value)) {
+                        try {
+                            const parsed = JSON.parse(value);
+                            if (parsed && (parsed.folders || parsed.projects || parsed.projectData)) {
+                                foundData = { key, data: parsed };
+                                break;
+                            }
+                        } catch (e) {
+                            // Not valid JSON, continue
+                        }
+                    }
+                }
+                
+                if (foundData) {
+                    resultDiv.innerHTML = `
+                        <h4>✅ Data Found!</h4>
+                        <p>Found data in key: <strong>${foundData.key}</strong></p>
+                        <h5>Data Preview:</h5>
+                        <pre>${JSON.stringify(foundData.data, null, 2)}</pre>
+                        <button onclick="recoverData('${foundData.key}')">Recover This Data</button>
+                    `;
+                    resultDiv.className = 'section success';
+                } else {
+                    resultDiv.innerHTML = '<p>No recoverable data found in local storage.</p>';
+                    resultDiv.className = 'section warning';
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p>Error during recovery attempt: ${error.message}</p>`;
+                resultDiv.className = 'section error';
+            }
+        }
+        
+        async function recoverData(key) {
+            const resultDiv = document.getElementById('recoveryResult');
+            resultDiv.innerHTML = '<p>Recovering data...</p>';
+            
+            try {
+                const data = JSON.parse(localStorage.getItem(key));
+                const token = localStorage.getItem('todoAppToken');
+                
+                if (!token) {
+                    throw new Error('No authentication token found');
+                }
+                
+                const response = await fetch('/api/user/data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = '<p>✅ Data recovery successful! Your projects and tasks have been restored.</p>';
+                    resultDiv.className = 'section success';
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(`Server error: ${errorData.error || 'Unknown error'}`);
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p>❌ Recovery failed: ${error.message}</p>`;
+                resultDiv.className = 'section error';
+            }
+        }
+        
+        function isJsonString(str) {
+            try {
+                JSON.parse(str);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+    </script>
+</body>
+</html>

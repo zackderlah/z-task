@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Data Migration Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Data Migration Tool</h1>
+        <p>This tool will help you recover your tasks and projects from local storage and migrate them to the server database.</p>
+        
+        <div class="section info">
+            <h3>Step 1: Check Local Storage Data</h3>
+            <button onclick="checkLocalData()">Check Local Storage</button>
+            <div id="localDataResult"></div>
+        </div>
+        
+        <div class="section info">
+            <h3>Step 2: Migrate Data to Server</h3>
+            <button onclick="migrateData()">Migrate Data</button>
+            <div id="migrationResult"></div>
+        </div>
+        
+        <div class="section info">
+            <h3>Step 3: Verify Migration</h3>
+            <button onclick="verifyMigration()">Verify Data</button>
+            <div id="verificationResult"></div>
+        </div>
+    </div>
+
+    <script>
+        function checkLocalData() {
+            const resultDiv = document.getElementById('localDataResult');
+            resultDiv.innerHTML = '<p>Checking local storage...</p>';
+            
+            try {
+                const allKeys = Object.keys(localStorage);
+                const todoKeys = allKeys.filter(key => key.startsWith('todoApp'));
+                
+                let html = '<h4>Found Local Storage Keys:</h4><ul>';
+                todoKeys.forEach(key => {
+                    html += `<li><strong>${key}:</strong> ${localStorage.getItem(key) ? 'Has data' : 'Empty'}</li>`;
+                });
+                html += '</ul>';
+                
+                // Check for user data
+                const currentUser = localStorage.getItem('todoAppCurrentUser');
+                if (currentUser) {
+                    const user = JSON.parse(currentUser);
+                    html += `<h4>Current User:</h4><pre>${JSON.stringify(user, null, 2)}</pre>`;
+                    
+                    const userData = localStorage.getItem(`todoAppData_${user.id}`);
+                    if (userData) {
+                        html += `<h4>User Data Found:</h4><pre>${JSON.stringify(JSON.parse(userData), null, 2)}</pre>`;
+                    } else {
+                        html += '<p>No user data found in local storage.</p>';
+                    }
+                } else {
+                    html += '<p>No current user found in local storage.</p>';
+                }
+                
+                resultDiv.innerHTML = html;
+                resultDiv.className = 'section success';
+            } catch (error) {
+                resultDiv.innerHTML = `<p>Error checking local storage: ${error.message}</p>`;
+                resultDiv.className = 'section error';
+            }
+        }
+        
+        async function migrateData() {
+            const resultDiv = document.getElementById('migrationResult');
+            resultDiv.innerHTML = '<p>Starting migration...</p>';
+            
+            try {
+                const currentUser = localStorage.getItem('todoAppCurrentUser');
+                if (!currentUser) {
+                    throw new Error('No current user found in local storage');
+                }
+                
+                const user = JSON.parse(currentUser);
+                const userData = localStorage.getItem(`todoAppData_${user.id}`);
+                
+                if (!userData) {
+                    throw new Error('No user data found in local storage');
+                }
+                
+                const data = JSON.parse(userData);
+                const projectData = data.projectData || data;
+                
+                // Get the current token
+                const token = localStorage.getItem('todoAppToken');
+                if (!token) {
+                    throw new Error('No authentication token found. Please log in first.');
+                }
+                
+                // Send data to server
+                const response = await fetch('/api/user/data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(projectData)
+                });
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = '<p>✅ Data migration successful! Your tasks and projects have been restored.</p>';
+                    resultDiv.className = 'section success';
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(`Server error: ${errorData.error || 'Unknown error'}`);
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p>❌ Migration failed: ${error.message}</p>`;
+                resultDiv.className = 'section error';
+            }
+        }
+        
+        async function verifyMigration() {
+            const resultDiv = document.getElementById('verificationResult');
+            resultDiv.innerHTML = '<p>Verifying migration...</p>';
+            
+            try {
+                const token = localStorage.getItem('todoAppToken');
+                if (!token) {
+                    throw new Error('No authentication token found. Please log in first.');
+                }
+                
+                const response = await fetch('/api/user/data', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<h4>✅ Data verified! Found:</h4><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    resultDiv.className = 'section success';
+                } else {
+                    throw new Error('Failed to verify data');
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p>❌ Verification failed: ${error.message}</p>`;
+                resultDiv.className = 'section error';
+            }
+        }
+    </script>
+</body>
+</html>
