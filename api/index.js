@@ -6,7 +6,199 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config();
 
-const { supabase, supabaseHelpers } = require('../supabase-setup');
+// Simple Supabase setup without external file
+const { createClient } = require('@supabase/supabase-js');
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing Supabase environment variables');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Helper functions
+const supabaseHelpers = {
+    // Get user data
+    async getUserData(userId) {
+        const { data: folders } = await supabase
+            .from('folders')
+            .select(`
+                id, name, expanded,
+                project_folders (
+                    projects (
+                        id, name, description,
+                        columns (
+                            id, title, tag, position,
+                            tasks (
+                                id, text, description, priority, due_date, tags, completed, completed_at, position
+                            )
+                        )
+                    )
+                )
+            `)
+            .eq('user_id', userId)
+            .order('name');
+
+        const { data: uncategorized } = await supabase
+            .from('projects')
+            .select(`
+                id, name, description,
+                columns (
+                    id, title, tag, position,
+                    tasks (
+                        id, text, description, priority, due_date, tags, completed, completed_at, position
+                    )
+                )
+            `)
+            .eq('user_id', userId)
+            .is('project_folders.project_id', null)
+            .order('name');
+
+        return { folders, uncategorized };
+    },
+
+    // Save user data
+    async saveUserData(userId, data) {
+        const { folders, uncategorized } = data;
+
+        // Clear existing data
+        await supabase.from('tasks').delete().in('column_id', 
+            supabase.from('columns').select('id').in('project_id', 
+                supabase.from('projects').select('id').eq('user_id', userId)
+            )
+        );
+        
+        await supabase.from('columns').delete().in('project_id', 
+            supabase.from('projects').select('id').eq('user_id', userId)
+        );
+        
+        await supabase.from('project_folders').delete().in('project_id', 
+            supabase.from('projects').select('id').eq('user_id', userId)
+        );
+        
+        await supabase.from('projects').delete().eq('user_id', userId);
+        await supabase.from('folders').delete().eq('user_id', userId);
+
+        // Insert new data
+        for (const folder of folders) {
+            const { data: folderData } = await supabase
+                .from('folders')
+                .insert({
+                    user_id: userId,
+                    name: folder.name,
+                    expanded: folder.expanded !== false
+                })
+                .select()
+                .single();
+
+            if (folder.projects) {
+                for (const project of folder.projects) {
+                    const { data: projectData } = await supabase
+                        .from('projects')
+                        .insert({
+                            user_id: userId,
+                            name: project.name,
+                            description: project.description || ''
+                        })
+                        .select()
+                        .single();
+
+                    // Link project to folder
+                    await supabase
+                        .from('project_folders')
+                        .insert({
+                            project_id: projectData.id,
+                            folder_id: folderData.id
+                        });
+
+                    // Insert columns and tasks
+                    if (project.columns) {
+                        for (const column of project.columns) {
+                            const { data: columnData } = await supabase
+                                .from('columns')
+                                .insert({
+                                    project_id: projectData.id,
+                                    title: column.title,
+                                    tag: column.tag || '',
+                                    position: column.position || 0
+                                })
+                                .select()
+                                .single();
+
+                            if (column.items) {
+                                for (const item of column.items) {
+                                    await supabase
+                                        .from('tasks')
+                                        .insert({
+                                            column_id: columnData.id,
+                                            text: item.text,
+                                            description: item.description || '',
+                                            priority: item.priority || 'medium',
+                                            due_date: item.dueDate || null,
+                                            tags: item.tags || [],
+                                            completed: item.completed || false,
+                                            completed_at: item.completedAt || null,
+                                            position: item.position || 0
+                                        });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Insert uncategorized projects
+        if (uncategorized) {
+            for (const project of uncategorized) {
+                const { data: projectData } = await supabase
+                    .from('projects')
+                    .insert({
+                        user_id: userId,
+                        name: project.name,
+                        description: project.description || ''
+                    })
+                    .select()
+                    .single();
+
+                if (project.columns) {
+                    for (const column of project.columns) {
+                        const { data: columnData } = await supabase
+                            .from('columns')
+                            .insert({
+                                project_id: projectData.id,
+                                title: column.title,
+                                tag: column.tag || '',
+                                position: column.position || 0
+                            })
+                            .select()
+                            .single();
+
+                        if (column.items) {
+                            for (const item of column.items) {
+                                await supabase
+                                    .from('tasks')
+                                    .insert({
+                                        column_id: columnData.id,
+                                        text: item.text,
+                                        description: item.description || '',
+                                        priority: item.priority || 'medium',
+                                        due_date: item.dueDate || null,
+                                        tags: item.tags || [],
+                                        completed: item.completed || false,
+                                        completed_at: item.completedAt || null,
+                                        position: item.position || 0
+                                    });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+};
 
 const app = express();
 
