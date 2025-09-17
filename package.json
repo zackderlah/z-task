@@ -1,5 +1,5 @@
 {
-  "name": "z-task",
+  "name": "ztask",
   "version": "1.0.1",
   "description": "A collaborative todo application with user authentication and project management",
   "main": "server.js",
