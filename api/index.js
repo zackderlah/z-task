@@ -268,7 +268,7 @@ async function authenticateSupabase(req, res, next) {
 }
 
 // Health check endpoint
-app.get('/api/health', async (req, res) => {
+app.get('/health', async (req, res) => {
     try {
         const { data, error } = await supabase.from('folders').select('count').limit(1);
         
@@ -291,7 +291,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // User registration (using Supabase Auth)
-app.post('/api/auth/register', async (req, res) => {
+app.post('/auth/register', async (req, res) => {
     try {
         const { email, password, username } = req.body;
 
@@ -389,7 +389,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // User login (using Supabase Auth)
-app.post('/api/auth/login', async (req, res) => {
+app.post('/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -428,7 +428,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // Get user data
-app.get('/api/user/data', authenticateSupabase, async (req, res) => {
+app.get('/user/data', authenticateSupabase, async (req, res) => {
     try {
         const userId = req.user.id;
         const data = await supabaseHelpers.getUserData(userId);
@@ -440,7 +440,7 @@ app.get('/api/user/data', authenticateSupabase, async (req, res) => {
 });
 
 // Save user data
-app.post('/api/user/data', authenticateSupabase, async (req, res) => {
+app.post('/user/data', authenticateSupabase, async (req, res) => {
     try {
         const userId = req.user.id;
         const data = req.body;
