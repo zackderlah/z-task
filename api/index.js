@@ -459,9 +459,24 @@ app.use((error, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
+// Root handler for debugging
+app.get('/', (req, res) => {
+    res.json({ 
+        message: 'z-task API is running',
+        endpoints: [
+            'GET /health - Health check',
+            'GET /debug - Debug info',
+            'POST /auth/register - User registration',
+            'POST /auth/login - User login',
+            'GET /user/data - Get user data',
+            'POST /user/data - Save user data'
+        ]
+    });
+});
+
 // 404 handler
 app.use((req, res) => {
-    res.status(404).json({ error: 'Endpoint not found' });
+    res.status(404).json({ error: 'Endpoint not found', path: req.path });
 });
 
 module.exports = app;
