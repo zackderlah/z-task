@@ -61,18 +61,14 @@ module.exports = async (req, res) => {
                 const userData = req.body;
                 console.log('Saving user data:', userData);
 
-                // First, try to delete existing data
-                await supabase
-                    .from('user_data')
-                    .delete()
-                    .eq('user_id', userId);
-
-                // Then insert new data
+                // Use upsert with proper conflict resolution
                 const { error } = await supabase
                     .from('user_data')
-                    .insert({
+                    .upsert({
                         user_id: userId,
                         data: userData
+                    }, {
+                        onConflict: 'user_id'
                     });
 
                 if (error) {
