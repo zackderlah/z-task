@@ -94,12 +94,12 @@ class TodoApp {
 
     getFirstProjectId() {
         // Find the first project in any folder or uncategorized
-        for (const folder of this.projectData.folders) {
-            if (folder.projects.length > 0) {
+        for (const folder of this.projectData.folders || []) {
+            if (folder.projects && folder.projects.length > 0) {
                 return folder.projects[0].id;
             }
         }
-        if (this.projectData.uncategorized.length > 0) {
+        if (this.projectData.uncategorized && this.projectData.uncategorized.length > 0) {
             return this.projectData.uncategorized[0].id;
         }
         return null;
@@ -107,10 +107,14 @@ class TodoApp {
 
     getAllProjects() {
         const allProjects = [];
-        for (const folder of this.projectData.folders) {
-            allProjects.push(...folder.projects);
+        for (const folder of this.projectData.folders || []) {
+            if (folder.projects) {
+                allProjects.push(...folder.projects);
+            }
         }
-        allProjects.push(...this.projectData.uncategorized);
+        if (this.projectData.uncategorized) {
+            allProjects.push(...this.projectData.uncategorized);
+        }
         return allProjects;
     }
 

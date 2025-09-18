@@ -70,47 +70,82 @@ const getUserData = async (userId) => {
 const saveUserData = async (userId, data) => {
     const { folders, uncategorized } = data;
 
-    // Clear existing data
-    await supabase.from('tasks').delete().in('column_id',
-        supabase.from('columns').select('id').in('project_id',
-            supabase.from('projects').select('id').eq('user_id', userId)
-        )
-    );
+    // Clear existing data - simplified approach
+    try {
+        // First get all project IDs for this user
+        const { data: userProjects } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('user_id', userId);
 
-    await supabase.from('columns').delete().in('project_id',
-        supabase.from('projects').select('id').eq('user_id', userId)
-    );
+        if (userProjects && userProjects.length > 0) {
+            const projectIds = userProjects.map(p => p.id);
 
-    await supabase.from('project_folders').delete().in('project_id',
-        supabase.from('projects').select('id').eq('user_id', userId)
-    );
+            // Get all column IDs for these projects
+            const { data: userColumns } = await supabase
+                .from('columns')
+                .select('id')
+                .in('project_id', projectIds);
 
-    await supabase.from('projects').delete().eq('user_id', userId);
-    await supabase.from('folders').delete().eq('user_id', userId);
+            if (userColumns && userColumns.length > 0) {
+                const columnIds = userColumns.map(c => c.id);
+
+                // Delete tasks
+                await supabase.from('tasks').delete().in('column_id', columnIds);
+            }
+
+            // Delete columns
+            await supabase.from('columns').delete().in('project_id', projectIds);
+
+            // Delete project-folder relationships
+            await supabase.from('project_folders').delete().in('project_id', projectIds);
+
+            // Delete projects
+            await supabase.from('projects').delete().in('id', projectIds);
+        }
+
+        // Delete folders
+        await supabase.from('folders').delete().eq('user_id', userId);
+    } catch (error) {
+        console.error('Error clearing existing data:', error);
+        // Continue with insert even if clear fails
+    }
 
     // Insert new data
-    for (const folder of folders) {
-        const { data: folderData } = await supabase
-            .from('folders')
-            .insert({
-                user_id: userId,
-                name: folder.name,
-                expanded: folder.expanded !== false
-            })
-            .select()
-            .single();
+    for (const folder of folders || []) {
+        try {
+            const { data: folderData, error: folderError } = await supabase
+                .from('folders')
+                .insert({
+                    user_id: userId,
+                    name: folder.name,
+                    expanded: folder.expanded !== false
+                })
+                .select()
+                .single();
 
-        if (folder.projects) {
-            for (const project of folder.projects) {
-                const { data: projectData } = await supabase
-                    .from('projects')
-                    .insert({
-                        user_id: userId,
-                        name: project.name,
-                        description: project.description || ''
-                    })
-                    .select()
-                    .single();
+            if (folderError) {
+                console.error('Error creating folder:', folderError);
+                continue;
+            }
+
+            if (folder.projects) {
+                for (const project of folder.projects) {
+                    try {
+                        const { data: projectData, error: projectError } = await supabase
+                            .from('projects')
+                            .insert({
+                                user_id: userId,
+                                name: project.name,
+                                description: project.description || ''
+                            })
+                            .select()
+                            .single();
+
+                        if (projectError) {
+                            console.error('Error creating project:', projectError);
+                            continue;
+                        }
 
                 // Link project to folder
                 await supabase
@@ -160,15 +195,21 @@ const saveUserData = async (userId, data) => {
     // Insert uncategorized projects
     if (uncategorized) {
         for (const project of uncategorized) {
-            const { data: projectData } = await supabase
-                .from('projects')
-                .insert({
-                    user_id: userId,
-                    name: project.name,
-                    description: project.description || ''
-                })
-                .select()
-                .single();
+            try {
+                const { data: projectData, error: projectError } = await supabase
+                    .from('projects')
+                    .insert({
+                        user_id: userId,
+                        name: project.name,
+                        description: project.description || ''
+                    })
+                    .select()
+                    .single();
+
+                if (projectError) {
+                    console.error('Error creating uncategorized project:', projectError);
+                    continue;
+                }
 
             if (project.columns) {
                 for (const column of project.columns) {
