@@ -39,86 +39,68 @@ module.exports = async (req, res) => {
         const userId = user.id;
 
         if (req.method === 'GET') {
-            // Get user data - reconstruct full data structure
+            // Get user data - simplified approach
             try {
-                // Get folders with their projects
+                // Get all folders
                 const { data: folders, error: foldersError } = await supabase
                     .from('folders')
-                    .select(`
-                        *,
-                        project_folders (
-                            projects (
-                                *,
-                                columns (
-                                    *,
-                                    tasks (*)
-                                )
-                            )
-                        )
-                    `)
+                    .select('*')
                     .eq('user_id', userId);
 
-                // Get uncategorized projects (not in any folder)
-                const { data: uncategorized, error: uncategorizedError } = await supabase
+                // Get all projects
+                const { data: projects, error: projectsError } = await supabase
                     .from('projects')
-                    .select(`
-                        *,
-                        columns (
-                            *,
-                            tasks (*)
-                        )
-                    `)
-                    .eq('user_id', userId)
-                    .is('project_folders.project_id', null);
+                    .select('*')
+                    .eq('user_id', userId);
+
+                // Get all columns
+                const { data: columns, error: columnsError } = await supabase
+                    .from('columns')
+                    .select('*')
+                    .in('project_id', projects?.map(p => p.id) || []);
+
+                // Get all tasks
+                const { data: tasks, error: tasksError } = await supabase
+                    .from('tasks')
+                    .select('*')
+                    .in('column_id', columns?.map(c => c.id) || []);
 
                 console.log('Fetched data:', { 
                     folders: folders?.length || 0, 
-                    uncategorized: uncategorized?.length || 0 
+                    projects: projects?.length || 0,
+                    columns: columns?.length || 0,
+                    tasks: tasks?.length || 0
                 });
 
-                // Format folders with projects
-                const formattedFolders = (folders || []).map(folder => ({
-                    id: folder.id,
-                    name: folder.name,
-                    expanded: folder.expanded,
-                    projects: (folder.project_folders || []).map(pf => {
-                        const project = pf.projects;
-                        return {
-                            id: project.id,
-                            name: project.name,
-                            description: project.description,
-                            columns: (project.columns || []).map(column => ({
-                                id: column.id,
-                                title: column.title,
-                                tag: column.tag,
-                                position: column.position,
-                                items: (column.tasks || []).map(task => ({
-                                    id: task.id,
-                                    text: task.text,
-                                    description: task.description,
-                                    priority: task.priority,
-                                    dueDate: task.due_date,
-                                    tags: task.tags || [],
-                                    completed: task.completed,
-                                    completedAt: task.completed_at,
-                                    position: task.position
-                                }))
-                            }))
-                        };
-                    })
-                }));
+                // Group columns by project
+                const columnsByProject = {};
+                (columns || []).forEach(column => {
+                    if (!columnsByProject[column.project_id]) {
+                        columnsByProject[column.project_id] = [];
+                    }
+                    columnsByProject[column.project_id].push(column);
+                });
 
-                // Format uncategorized projects
-                const formattedUncategorized = (uncategorized || []).map(project => ({
+                // Group tasks by column
+                const tasksByColumn = {};
+                (tasks || []).forEach(task => {
+                    if (!tasksByColumn[task.column_id]) {
+                        tasksByColumn[task.column_id] = [];
+                    }
+                    tasksByColumn[task.column_id].push(task);
+                });
+
+                // Format projects with columns and tasks
+                const formattedProjects = (projects || []).map(project => ({
                     id: project.id,
                     name: project.name,
                     description: project.description,
-                    columns: (project.columns || []).map(column => ({
+                    columns: (columnsByProject[project.id] || []).map(column => ({
                         id: column.id,
                         title: column.title,
                         tag: column.tag,
                         position: column.position,
-                        items: (column.tasks || []).map(task => ({
+                        items: (tasksByColumn[column.id] || []).map(task => ({
                             id: task.id,
                             text: task.text,
                             description: task.description,
@@ -131,6 +113,17 @@ module.exports = async (req, res) => {
                         }))
                     }))
                 }));
+
+                // Format folders with projects
+                const formattedFolders = (folders || []).map(folder => ({
+                    id: folder.id,
+                    name: folder.name,
+                    expanded: folder.expanded,
+                    projects: [] // For now, we'll put all projects in uncategorized
+                }));
+
+                // Put all projects in uncategorized for now
+                const formattedUncategorized = formattedProjects;
 
                 res.json({
                     folders: formattedFolders,
