@@ -39,45 +39,103 @@ module.exports = async (req, res) => {
         const userId = user.id;
 
         if (req.method === 'GET') {
-            // Get user data - return default structure if no data exists
+            // Get user data - reconstruct full data structure
             try {
+                // Get folders with their projects
                 const { data: folders, error: foldersError } = await supabase
                     .from('folders')
-                    .select('*')
+                    .select(`
+                        *,
+                        project_folders (
+                            projects (
+                                *,
+                                columns (
+                                    *,
+                                    tasks (*)
+                                )
+                            )
+                        )
+                    `)
                     .eq('user_id', userId);
 
-                const { data: projects, error: projectsError } = await supabase
+                // Get uncategorized projects (not in any folder)
+                const { data: uncategorized, error: uncategorizedError } = await supabase
                     .from('projects')
-                    .select('*')
-                    .eq('user_id', userId);
+                    .select(`
+                        *,
+                        columns (
+                            *,
+                            tasks (*)
+                        )
+                    `)
+                    .eq('user_id', userId)
+                    .is('project_folders.project_id', null);
 
-                // If no data exists, return empty structure that matches frontend expectations
-                if ((!folders || folders.length === 0) && (!projects || projects.length === 0)) {
-                    res.json({
-                        folders: [],
-                        uncategorized: []
-                    });
-                } else {
-                    // Convert database format to frontend format
-                    const formattedFolders = (folders || []).map(folder => ({
-                        id: folder.id,
-                        name: folder.name,
-                        expanded: folder.expanded,
-                        projects: [] // We'll add projects later if needed
-                    }));
+                console.log('Fetched data:', { 
+                    folders: folders?.length || 0, 
+                    uncategorized: uncategorized?.length || 0 
+                });
 
-                    const formattedProjects = (projects || []).map(project => ({
-                        id: project.id,
-                        name: project.name,
-                        description: project.description,
-                        columns: [] // We'll add columns later if needed
-                    }));
+                // Format folders with projects
+                const formattedFolders = (folders || []).map(folder => ({
+                    id: folder.id,
+                    name: folder.name,
+                    expanded: folder.expanded,
+                    projects: (folder.project_folders || []).map(pf => {
+                        const project = pf.projects;
+                        return {
+                            id: project.id,
+                            name: project.name,
+                            description: project.description,
+                            columns: (project.columns || []).map(column => ({
+                                id: column.id,
+                                title: column.title,
+                                tag: column.tag,
+                                position: column.position,
+                                items: (column.tasks || []).map(task => ({
+                                    id: task.id,
+                                    text: task.text,
+                                    description: task.description,
+                                    priority: task.priority,
+                                    dueDate: task.due_date,
+                                    tags: task.tags || [],
+                                    completed: task.completed,
+                                    completedAt: task.completed_at,
+                                    position: task.position
+                                }))
+                            }))
+                        };
+                    })
+                }));
 
-                    res.json({
-                        folders: formattedFolders,
-                        uncategorized: formattedProjects
-                    });
-                }
+                // Format uncategorized projects
+                const formattedUncategorized = (uncategorized || []).map(project => ({
+                    id: project.id,
+                    name: project.name,
+                    description: project.description,
+                    columns: (project.columns || []).map(column => ({
+                        id: column.id,
+                        title: column.title,
+                        tag: column.tag,
+                        position: column.position,
+                        items: (column.tasks || []).map(task => ({
+                            id: task.id,
+                            text: task.text,
+                            description: task.description,
+                            priority: task.priority,
+                            dueDate: task.due_date,
+                            tags: task.tags || [],
+                            completed: task.completed,
+                            completedAt: task.completed_at,
+                            position: task.position
+                        }))
+                    }))
+                }));
+
+                res.json({
+                    folders: formattedFolders,
+                    uncategorized: formattedUncategorized
+                });
             } catch (error) {
                 console.error('Error fetching data:', error);
                 res.status(500).json({ error: 'Failed to fetch data' });
