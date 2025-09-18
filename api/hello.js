@@ -1,9 +1,8 @@
 module.exports = (req, res) => {
     res.status(200).json({
-        message: "Root API endpoint working!",
+        message: "Hello from Vercel API!",
         timestamp: new Date().toISOString(),
         method: req.method,
-        url: req.url,
-        path: req.url
+        url: req.url
     });
 };
