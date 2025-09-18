@@ -2381,18 +2381,26 @@ class TodoApp {
         if (this.currentUser) {
             try {
                 const token = localStorage.getItem('todoAppToken');
+                console.log('Loading user data for user:', this.currentUser.email);
+                console.log('Token exists:', !!token);
+                
                 const response = await fetch('/api/user/data', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 });
 
+                console.log('API response status:', response.status);
+                
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('Loaded user data:', data);
                     this.projectData = data;
                     this.currentProjectId = this.getFirstProjectId();
                 } else {
-                    console.log('Failed to load user data, using defaults');
+                    const errorData = await response.text();
+                    console.error('Failed to load user data. Status:', response.status, 'Error:', errorData);
+                    console.log('Using default data instead');
                     this.projectData = this.getDefaultProjects();
                     this.currentProjectId = this.getFirstProjectId();
                 }
@@ -2409,6 +2417,9 @@ class TodoApp {
         if (this.currentUser) {
             try {
                 const token = localStorage.getItem('todoAppToken');
+                console.log('Saving user data for user:', this.currentUser.email);
+                console.log('Data to save:', this.projectData);
+                
                 const response = await fetch('/api/user/data', {
                     method: 'POST',
                     headers: {
@@ -2418,8 +2429,13 @@ class TodoApp {
                     body: JSON.stringify(this.projectData)
                 });
 
+                console.log('Save response status:', response.status);
+                
                 if (!response.ok) {
-                    console.error('Failed to save user data');
+                    const errorData = await response.text();
+                    console.error('Failed to save user data. Status:', response.status, 'Error:', errorData);
+                } else {
+                    console.log('User data saved successfully');
                 }
             } catch (error) {
                 console.error('Error saving user data:', error);
