@@ -61,18 +61,23 @@ module.exports = async (req, res) => {
                 const userData = req.body;
                 console.log('Saving user data:', userData);
 
-                // Upsert the data
+                // First, try to delete existing data
+                await supabase
+                    .from('user_data')
+                    .delete()
+                    .eq('user_id', userId);
+
+                // Then insert new data
                 const { error } = await supabase
                     .from('user_data')
-                    .upsert({
+                    .insert({
                         user_id: userId,
-                        data: userData,
-                        updated_at: new Date().toISOString()
+                        data: userData
                     });
 
                 if (error) {
                     console.error('Error saving user data:', error);
-                    return res.status(500).json({ error: 'Failed to save data' });
+                    return res.status(500).json({ error: 'Failed to save data', details: error.message });
                 }
 
                 console.log('User data saved successfully');
@@ -80,7 +85,7 @@ module.exports = async (req, res) => {
 
             } catch (error) {
                 console.error('Error saving data:', error);
-                res.status(500).json({ error: 'Failed to save data' });
+                res.status(500).json({ error: 'Failed to save data', details: error.message });
             }
         } else {
             res.status(405).json({ error: 'Method not allowed' });
