@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
         const userId = user.id;
 
         if (req.method === 'GET') {
-            // Get user data - simplified
+            // Get user data - return default structure if no data exists
             try {
                 const { data: folders, error: foldersError } = await supabase
                     .from('folders')
@@ -51,20 +51,43 @@ module.exports = async (req, res) => {
                     .select('*')
                     .eq('user_id', userId);
 
-                res.json({
-                    folders: folders || [],
-                    uncategorized: projects || [],
-                    success: true
-                });
+                // If no data exists, return empty structure that matches frontend expectations
+                if ((!folders || folders.length === 0) && (!projects || projects.length === 0)) {
+                    res.json({
+                        folders: [],
+                        uncategorized: []
+                    });
+                } else {
+                    // Convert database format to frontend format
+                    const formattedFolders = (folders || []).map(folder => ({
+                        id: folder.id,
+                        name: folder.name,
+                        expanded: folder.expanded,
+                        projects: [] // We'll add projects later if needed
+                    }));
+
+                    const formattedProjects = (projects || []).map(project => ({
+                        id: project.id,
+                        name: project.name,
+                        description: project.description,
+                        columns: [] // We'll add columns later if needed
+                    }));
+
+                    res.json({
+                        folders: formattedFolders,
+                        uncategorized: formattedProjects
+                    });
+                }
             } catch (error) {
                 console.error('Error fetching data:', error);
                 res.status(500).json({ error: 'Failed to fetch data' });
             }
 
         } else if (req.method === 'POST') {
-            // Save user data - simplified
+            // Save user data - handle the full data structure
             try {
                 const { folders, uncategorized } = req.body;
+                console.log('Saving data:', { folders: folders?.length, uncategorized: uncategorized?.length });
 
                 // Clear existing data
                 await supabase.from('folders').delete().eq('user_id', userId);
@@ -73,22 +96,89 @@ module.exports = async (req, res) => {
                 // Insert new folders
                 if (folders && folders.length > 0) {
                     for (const folder of folders) {
-                        await supabase.from('folders').insert({
-                            user_id: userId,
-                            name: folder.name,
-                            expanded: folder.expanded !== false
-                        });
+                        const { data: folderData, error: folderError } = await supabase
+                            .from('folders')
+                            .insert({
+                                user_id: userId,
+                                name: folder.name,
+                                expanded: folder.expanded !== false
+                            })
+                            .select()
+                            .single();
+
+                        if (folderError) {
+                            console.error('Error creating folder:', folderError);
+                            continue;
+                        }
+
+                        // Insert projects in this folder
+                        if (folder.projects && folder.projects.length > 0) {
+                            for (const project of folder.projects) {
+                                await supabase.from('projects').insert({
+                                    user_id: userId,
+                                    name: project.name,
+                                    description: project.description || ''
+                                });
+                            }
+                        }
                     }
                 }
 
-                // Insert new projects
+                // Insert uncategorized projects
                 if (uncategorized && uncategorized.length > 0) {
                     for (const project of uncategorized) {
-                        await supabase.from('projects').insert({
-                            user_id: userId,
-                            name: project.name,
-                            description: project.description || ''
-                        });
+                        const { data: projectData, error: projectError } = await supabase
+                            .from('projects')
+                            .insert({
+                                user_id: userId,
+                                name: project.name,
+                                description: project.description || ''
+                            })
+                            .select()
+                            .single();
+
+                        if (projectError) {
+                            console.error('Error creating project:', projectError);
+                            continue;
+                        }
+
+                        // Insert columns for this project
+                        if (project.columns && project.columns.length > 0) {
+                            for (const column of project.columns) {
+                                const { data: columnData, error: columnError } = await supabase
+                                    .from('columns')
+                                    .insert({
+                                        project_id: projectData.id,
+                                        title: column.title,
+                                        tag: column.tag || '',
+                                        position: column.position || 0
+                                    })
+                                    .select()
+                                    .single();
+
+                                if (columnError) {
+                                    console.error('Error creating column:', columnError);
+                                    continue;
+                                }
+
+                                // Insert tasks for this column
+                                if (column.items && column.items.length > 0) {
+                                    for (const item of column.items) {
+                                        await supabase.from('tasks').insert({
+                                            column_id: columnData.id,
+                                            text: item.text,
+                                            description: item.description || '',
+                                            priority: item.priority || 'medium',
+                                            due_date: item.dueDate || null,
+                                            tags: item.tags || [],
+                                            completed: item.completed || false,
+                                            completed_at: item.completedAt || null,
+                                            position: item.position || 0
+                                        });
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
