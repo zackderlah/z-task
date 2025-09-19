@@ -25,80 +25,60 @@ module.exports = async (req, res) => {
     }
     
     try {
-        const { username, email, password } = req.body;
-
-        if (!username || !email || !password) {
-            return res.status(400).json({ error: 'Username, email, and password are required' });
-        }
-
-        const { data, error } = await supabase.auth.signUp({
-            email: email,
-            password: password,
-            options: {
-                data: {
-                    username: username
-                }
-            }
+        console.log('=== REGISTER API CALLED ===');
+        console.log('Request method:', req.method);
+        console.log('Request headers:', req.headers);
+        
+        // Parse request body manually
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk.toString();
         });
+        
+        req.on('end', async () => {
+            try {
+                console.log('Raw request body:', body);
+                
+                const requestData = JSON.parse(body);
+                console.log('Parsed request body:', requestData);
+                
+                const { username, email, password } = requestData;
 
-        if (error) {
-            console.error('Supabase signup error:', error);
-            return res.status(400).json({ error: error.message });
-        }
+                if (!username || !email || !password) {
+                    console.error('Missing required fields');
+                    return res.status(400).json({ error: 'Username, email, and password are required' });
+                }
 
-        // Create default folder and project for new user
-        const userId = data.user.id;
+                console.log('Attempting registration for email:', email);
 
-        // Create default folder
-        const { data: folderData, error: folderError } = await supabase
-            .from('folders')
-            .insert({ user_id: userId, name: 'Default', expanded: true })
-            .select()
-            .single();
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: {
+                            username: username
+                        }
+                    }
+                });
 
-        if (folderError) {
-            console.error('Error creating default folder:', folderError);
-        }
+                if (error) {
+                    console.error('Supabase signup error:', error);
+                    return res.status(400).json({ error: error.message });
+                }
 
-        const folderId = folderData ? folderData.id : null;
+                console.log('Registration successful for user:', data.user.email);
 
-        // Create default project
-        const { data: projectData, error: projectError } = await supabase
-            .from('projects')
-            .insert({ user_id: userId, name: 'My First Project' })
-            .select()
-            .single();
+                // For now, just return success without creating default data
+                // This will be handled by the frontend
+                res.status(201).json({
+                    message: 'User created successfully',
+                    user: { id: data.user.id, username: username, email: email }
+                });
 
-        if (projectError) {
-            console.error('Error creating default project:', projectError);
-        }
-
-        const projectId = projectData ? projectData.id : null;
-
-        // Link project to folder
-        if (projectId && folderId) {
-            await supabase.from('project_folders').insert({ project_id: projectId, folder_id: folderId });
-        }
-
-        // Create default columns
-        const defaultColumns = [
-            { title: 'TODO', tag: 'todo', position: 0 },
-            { title: 'IN PROGRESS', tag: 'in-progress', position: 1 },
-            { title: 'DONE', tag: 'done', position: 2 }
-        ];
-
-        for (const column of defaultColumns) {
-            await supabase.from('columns').insert({
-                project_id: projectId,
-                title: column.title,
-                tag: column.tag,
-                position: column.position
-            });
-        }
-
-        res.status(201).json({
-            message: 'User created successfully',
-            user: { id: userId, username: username, email: email }
+            } catch (parseError) {
+                console.error('Error parsing request body:', parseError);
+                res.status(400).json({ error: 'Invalid request body' });
+            }
         });
 
     } catch (error) {
