@@ -309,6 +309,30 @@
         </div>
     </div>
 
+    <!-- Invitation Success Modal -->
+    <div class="modal" id="invitationSuccessModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Invitation Sent Successfully!</h2>
+                <button class="close-btn" id="closeInvitationSuccessModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Your invitation has been sent to <strong id="invitedEmail"></strong></p>
+                <div class="form-group">
+                    <label for="invitationLinkInput">Invitation Link:</label>
+                    <div class="input-group">
+                        <input type="text" id="invitationLinkInput" readonly>
+                        <button class="btn btn-primary" id="copyInvitationLinkBtn">Copy Link</button>
+                    </div>
+                    <small class="form-help">Share this link with the person you invited</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="closeInvitationSuccessBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
 
     <script src="api.js"></script>
     <script src="script.js"></script>

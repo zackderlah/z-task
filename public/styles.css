@@ -2195,6 +2195,35 @@ body.light-theme .task-detail-field textarea::placeholder {
     background-color: #5a6268;
 }
 
+/* Input Group for invitation link */
+.input-group {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.input-group input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(23, 162, 184, 0.2);
+}
+
+.input-group button {
+    white-space: nowrap;
+    padding: 8px 16px;
+}
+
 /* Invitation Modal Styles - Minimalistic */
 #invitationModal .modal-content {
     max-width: 420px;

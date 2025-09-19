@@ -433,6 +433,23 @@ class TodoApp {
             console.log('Close notification button not found for event listener');
         }
 
+        // Invitation success modal event listeners
+        const closeInvitationSuccessModal = document.getElementById('closeInvitationSuccessModal');
+        const closeInvitationSuccessBtn = document.getElementById('closeInvitationSuccessBtn');
+        const copyInvitationLinkBtn = document.getElementById('copyInvitationLinkBtn');
+
+        if (closeInvitationSuccessModal) {
+            closeInvitationSuccessModal.addEventListener('click', () => this.hideInvitationSuccessModal());
+        }
+
+        if (closeInvitationSuccessBtn) {
+            closeInvitationSuccessBtn.addEventListener('click', () => this.hideInvitationSuccessModal());
+        }
+
+        if (copyInvitationLinkBtn) {
+            copyInvitationLinkBtn.addEventListener('click', () => this.copyInvitationLink());
+        }
+
         // Authentication event listeners
         const loginBtn = document.getElementById('loginBtn');
         const signupBtn = document.getElementById('signupBtn');
@@ -1467,6 +1484,68 @@ class TodoApp {
         document.getElementById('invitationModal').classList.remove('show');
     }
 
+    showInvitationSuccessModal(email, invitationLink) {
+        const modal = document.getElementById('invitationSuccessModal');
+        const emailElement = document.getElementById('invitedEmail');
+        const linkInput = document.getElementById('invitationLinkInput');
+        
+        if (modal && emailElement && linkInput) {
+            emailElement.textContent = email;
+            linkInput.value = invitationLink;
+            modal.classList.add('show');
+        }
+    }
+
+    hideInvitationSuccessModal() {
+        const modal = document.getElementById('invitationSuccessModal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+    }
+
+    async copyInvitationLink() {
+        const linkInput = document.getElementById('invitationLinkInput');
+        if (!linkInput) return;
+
+        try {
+            await navigator.clipboard.writeText(linkInput.value);
+            
+            // Update button text to show success
+            const copyBtn = document.getElementById('copyInvitationLinkBtn');
+            if (copyBtn) {
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = 'Copied!';
+                copyBtn.style.backgroundColor = '#28a745';
+                
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.style.backgroundColor = '';
+                }, 2000);
+            }
+            
+            console.log('Invitation link copied to clipboard');
+        } catch (err) {
+            console.error('Could not copy to clipboard:', err);
+            
+            // Fallback: select the text in the input
+            linkInput.select();
+            linkInput.setSelectionRange(0, 99999); // For mobile devices
+            
+            // Show a message
+            const copyBtn = document.getElementById('copyInvitationLinkBtn');
+            if (copyBtn) {
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = 'Select & Copy';
+                copyBtn.style.backgroundColor = '#ffc107';
+                
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.style.backgroundColor = '';
+                }, 2000);
+            }
+        }
+    }
+
     async sendInvitation() {
         const email = document.getElementById('inviteEmailInput').value.trim();
         const permissions = document.getElementById('permissionsSelect').value;
@@ -1521,8 +1600,8 @@ class TodoApp {
                 data: { email, projectId: project.id, invitationLink: result.invitationLink }
             });
 
-            // Show success message with invitation link
-            alert(`Invitation sent to ${email}!\n\nInvitation link: ${result.invitationLink}`);
+            // Show success modal with invitation link
+            this.showInvitationSuccessModal(email, result.invitationLink);
             
             // Clear the form
             document.getElementById('inviteEmailInput').value = '';
