@@ -1,11 +1,14 @@
 const { createClient } = require('@supabase/supabase-js');
 const cors = require('micro-cors')();
+const crypto = require('crypto');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
     console.error('Missing Supabase environment variables');
+    console.error('SUPABASE_URL:', supabaseUrl ? 'SET' : 'MISSING');
+    console.error('SUPABASE_ANON_KEY:', supabaseKey ? 'SET' : 'MISSING');
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -38,7 +41,7 @@ module.exports = cors(async (req, res) => {
         console.log('Creating invitation:', { projectId, email, userId, permissions });
 
         // Generate invitation token
-        const invitationToken = require('crypto').randomBytes(32).toString('hex');
+        const invitationToken = crypto.randomBytes(32).toString('hex');
         
         // For now, we'll store invitations in a simple way
         // In a real app, you'd have a proper invitations table
@@ -139,6 +142,11 @@ module.exports = cors(async (req, res) => {
 
     } catch (error) {
         console.error('Error creating invitation:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+            error: 'Internal server error', 
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
