@@ -47,6 +47,8 @@ module.exports = async (req, res) => {
                 console.log('Loaded user data for user:', userId);
                 console.log('Raw data from DB:', data);
                 console.log('Parsed user data:', userData);
+                console.log('Folders array:', userData.folders);
+                console.log('First folder:', userData.folders?.[0]);
                 res.json(userData);
 
             } catch (error) {
