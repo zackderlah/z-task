@@ -2748,54 +2748,63 @@ class TodoApp {
 
         const notifications = this.notifications || [];
         
+        // Always preserve the header with close button
+        const header = `
+            <div class="notification-header">
+                <h3>Notifications</h3>
+                <button class="close-btn" id="closeNotificationPanel">&times;</button>
+            </div>
+        `;
+        
+        let content = '';
+        
         if (notifications.length === 0) {
-            panel.innerHTML = `
-                <div class="notification-header">
-                    <h3>Notifications</h3>
-                    <button class="close-btn" onclick="app.hideNotificationPanel()">&times;</button>
-                </div>
+            content = `
                 <div class="notification-content">
                     <p style="text-align: center; color: var(--text-secondary); padding: 20px;">No notifications yet</p>
                 </div>
             `;
-            return;
-        }
-
-        const notificationsHtml = notifications.map(notification => {
-            const isInvitation = notification.type === 'project_invitation';
-            const hasActions = notification.data && notification.data.actions;
-            
-            return `
-                <div class="notification-item ${!notification.read ? 'unread' : ''}">
-                    <div class="notification-content" onclick="app.markNotificationRead('${notification.id}')">
-                        <div class="notification-title">${notification.title}</div>
-                        <div class="notification-message">${notification.message}</div>
-                        <div class="notification-time">${new Date(notification.created_at).toLocaleString()}</div>
+        } else {
+            const notificationsHtml = notifications.map(notification => {
+                const isInvitation = notification.type === 'project_invitation';
+                const hasActions = notification.data && notification.data.actions;
+                
+                return `
+                    <div class="notification-item ${!notification.read ? 'unread' : ''}">
+                        <div class="notification-content" onclick="todoApp.markNotificationRead('${notification.id}')">
+                            <div class="notification-title">${notification.title}</div>
+                            <div class="notification-message">${notification.message}</div>
+                            <div class="notification-time">${new Date(notification.created_at).toLocaleString()}</div>
+                        </div>
+                        <div class="notification-actions">
+                            ${!notification.read ? '<div class="notification-dot"></div>' : ''}
+                            ${isInvitation && hasActions ? `
+                                <div class="invitation-actions">
+                                    <button class="btn btn-sm btn-success" onclick="todoApp.acceptInvitation('${notification.id}')">Accept</button>
+                                    <button class="btn btn-sm btn-secondary" onclick="todoApp.declineInvitation('${notification.id}')">Decline</button>
+                                </div>
+                            ` : ''}
+                        </div>
                     </div>
-                    <div class="notification-actions">
-                        ${!notification.read ? '<div class="notification-dot"></div>' : ''}
-                        ${isInvitation && hasActions ? `
-                            <div class="invitation-actions">
-                                <button class="btn btn-sm btn-success" onclick="app.acceptInvitation('${notification.id}')">Accept</button>
-                                <button class="btn btn-sm btn-secondary" onclick="app.declineInvitation('${notification.id}')">Decline</button>
-                            </div>
-                        ` : ''}
+                `;
+            }).join('');
+
+            content = `
+                <div class="notification-content">
+                    <div class="notification-list">
+                        ${notificationsHtml}
                     </div>
                 </div>
             `;
-        }).join('');
+        }
 
-        panel.innerHTML = `
-            <div class="notification-header">
-                <h3>Notifications</h3>
-                <button class="close-btn" onclick="app.hideNotificationPanel()">&times;</button>
-            </div>
-            <div class="notification-content">
-                <div class="notification-list">
-                    ${notificationsHtml}
-                </div>
-            </div>
-        `;
+        panel.innerHTML = header + content;
+        
+        // Re-attach the close button event listener
+        const closeBtn = document.getElementById('closeNotificationPanel');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.hideNotificationPanel());
+        }
     }
 
     checkForInvitationLink() {
@@ -2905,9 +2914,17 @@ class TodoApp {
     }
 
     async acceptInvitation(notificationId) {
+        console.log('acceptInvitation called with ID:', notificationId);
+        console.log('Current notifications:', this.notifications);
+        
         const notification = this.notifications.find(n => n.id === notificationId);
-        if (!notification || !notification.data || !notification.data.invitationToken) {
-            console.error('Invalid invitation notification');
+        if (!notification) {
+            console.error('Notification not found with ID:', notificationId);
+            return;
+        }
+        
+        if (!notification.data || !notification.data.invitationToken) {
+            console.error('Invalid invitation notification data:', notification);
             return;
         }
 
@@ -2924,6 +2941,8 @@ class TodoApp {
             
             this.updateNotificationBadge();
             this.renderNotifications();
+            
+            console.log('Invitation accepted successfully');
             
         } catch (error) {
             console.error('Error accepting invitation:', error);
