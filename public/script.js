@@ -2386,18 +2386,13 @@ class TodoApp {
     async loadUserData() {
         if (this.currentUser) {
             try {
-                const token = localStorage.getItem('todoAppToken');
                 console.log('Loading user data for user:', this.currentUser.email);
-                console.log('Token exists:', !!token);
-                
-                const response = await fetch('/api/user/data', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
+                console.log('User ID:', this.currentUser.id);
+
+                const response = await fetch(`/api/user/simple-data?userId=${this.currentUser.id}`);
 
                 console.log('API response status:', response.status);
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     console.log('Loaded user data:', data);
@@ -2406,22 +2401,6 @@ class TodoApp {
                 } else {
                     const errorData = await response.text();
                     console.error('Failed to load user data. Status:', response.status, 'Error:', errorData);
-                    
-                    // If token is invalid, try to refresh it
-                    if (response.status === 401) {
-                        console.log('Token expired, attempting to refresh...');
-                        const refreshResult = await this.refreshToken();
-                        if (refreshResult) {
-                            // Retry with new token
-                            return this.loadUserData();
-                        } else {
-                            // Refresh failed, logout user
-                            console.log('Token refresh failed, logging out user');
-                            this.logout();
-                            return;
-                        }
-                    }
-                    
                     console.log('Using default data instead');
                     this.projectData = this.getDefaultProjects();
                     this.currentProjectId = this.getFirstProjectId();
@@ -2466,17 +2445,19 @@ class TodoApp {
     async saveUserData() {
         if (this.currentUser) {
             try {
-                const token = localStorage.getItem('todoAppToken');
                 console.log('Saving user data for user:', this.currentUser.email);
+                console.log('User ID:', this.currentUser.id);
                 console.log('Data to save:', this.projectData);
 
-                const response = await fetch('/api/user/data', {
+                const response = await fetch('/api/user/simple-data', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(this.projectData)
+                    body: JSON.stringify({
+                        userId: this.currentUser.id,
+                        data: this.projectData
+                    })
                 });
 
                 console.log('Save response status:', response.status);
@@ -2484,21 +2465,6 @@ class TodoApp {
                 if (!response.ok) {
                     const errorData = await response.text();
                     console.error('Failed to save user data. Status:', response.status, 'Error:', errorData);
-                    
-                    // If token is invalid, try to refresh it
-                    if (response.status === 401) {
-                        console.log('Token expired during save, attempting to refresh...');
-                        const refreshResult = await this.refreshToken();
-                        if (refreshResult) {
-                            // Retry with new token
-                            return this.saveUserData();
-                        } else {
-                            // Refresh failed, logout user
-                            console.log('Token refresh failed during save, logging out user');
-                            this.logout();
-                            return;
-                        }
-                    }
                 } else {
                     console.log('User data saved successfully');
                 }

@@ -2274,10 +2274,10 @@ class TodoApp {
                 this.currentUser = data.user;
                 localStorage.setItem('todoAppCurrentUser', JSON.stringify(data.user));
                 localStorage.setItem('todoAppToken', data.token);
-                this.updateAuthUI();
-                this.hideAuthModal();
-                this.loadUserData();
-                alert('Account created successfully!');
+        this.updateAuthUI();
+        this.hideAuthModal();
+        this.loadUserData();
+        alert('Account created successfully!');
             } else {
                 console.log('Signup failed:', data.error);
                 alert(data.error || 'Failed to create account');
@@ -2304,10 +2304,10 @@ class TodoApp {
                 this.currentUser = data.user;
                 localStorage.setItem('todoAppCurrentUser', JSON.stringify(data.user));
                 localStorage.setItem('todoAppToken', data.token);
-                this.updateAuthUI();
-                this.hideAuthModal();
-                this.loadUserData();
-            } else {
+            this.updateAuthUI();
+            this.hideAuthModal();
+            this.loadUserData();
+        } else {
                 console.log('Login failed:', data.error);
                 alert(data.error || 'Invalid email or password');
             }
@@ -2390,11 +2390,11 @@ class TodoApp {
                 if (response.ok) {
                     const data = await response.json();
                     this.projectData = data;
-                    this.currentProjectId = this.getFirstProjectId();
-                } else {
+                this.currentProjectId = this.getFirstProjectId();
+            } else {
                     console.log('Failed to load user data, using defaults');
-                    this.projectData = this.getDefaultProjects();
-                    this.currentProjectId = this.getFirstProjectId();
+                this.projectData = this.getDefaultProjects();
+                this.currentProjectId = this.getFirstProjectId();
                 }
             } catch (error) {
                 console.error('Error loading user data:', error);
