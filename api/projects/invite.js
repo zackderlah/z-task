@@ -25,10 +25,13 @@ module.exports = cors(async (req, res) => {
     }
 
     try {
+        console.log('Invitation request body:', req.body);
+        
         const { projectId, email, permissions } = req.body;
         const userId = req.body.userId; // We'll get this from the frontend
 
         if (!projectId || !email || !userId) {
+            console.error('Missing required fields:', { projectId, email, userId });
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
@@ -51,6 +54,7 @@ module.exports = cors(async (req, res) => {
 
         // Store invitation in user_data table as a simple solution
         // Get current user data
+        console.log('Fetching user data for userId:', userId);
         const { data: userData, error: fetchError } = await supabase
             .from('user_data')
             .select('data')
@@ -59,8 +63,10 @@ module.exports = cors(async (req, res) => {
 
         if (fetchError && fetchError.code !== 'PGRST116') {
             console.error('Error fetching user data:', fetchError);
-            return res.status(500).json({ error: 'Failed to fetch user data' });
+            return res.status(500).json({ error: 'Failed to fetch user data', details: fetchError.message });
         }
+
+        console.log('User data fetched successfully:', userData ? 'exists' : 'not found');
 
         const currentData = userData?.data || { folders: [], uncategorized: [] };
         
@@ -71,6 +77,7 @@ module.exports = cors(async (req, res) => {
         currentData.invitations.push(invitationData);
 
         // Save updated user data
+        console.log('Saving invitation data...');
         const { error: saveError } = await supabase
             .from('user_data')
             .upsert({
@@ -82,8 +89,10 @@ module.exports = cors(async (req, res) => {
 
         if (saveError) {
             console.error('Error saving invitation:', saveError);
-            return res.status(500).json({ error: 'Failed to save invitation' });
+            return res.status(500).json({ error: 'Failed to save invitation', details: saveError.message });
         }
+
+        console.log('Invitation saved successfully');
 
         // Create notification for the invitee if they exist
         const { data: inviteeUser, error: inviteeError } = await supabase
