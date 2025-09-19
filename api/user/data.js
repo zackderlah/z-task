@@ -26,7 +26,8 @@ module.exports = async (req, res) => {
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         
         if (authError || !user) {
-            return res.status(401).json({ error: 'Invalid token' });
+            console.error('Auth error:', authError);
+            return res.status(401).json({ error: 'Invalid token', details: authError?.message });
         }
 
         const userId = user.id;

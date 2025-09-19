@@ -2406,6 +2406,22 @@ class TodoApp {
                 } else {
                     const errorData = await response.text();
                     console.error('Failed to load user data. Status:', response.status, 'Error:', errorData);
+                    
+                    // If token is invalid, try to refresh it
+                    if (response.status === 401) {
+                        console.log('Token expired, attempting to refresh...');
+                        const refreshResult = await this.refreshToken();
+                        if (refreshResult) {
+                            // Retry with new token
+                            return this.loadUserData();
+                        } else {
+                            // Refresh failed, logout user
+                            console.log('Token refresh failed, logging out user');
+                            this.logout();
+                            return;
+                        }
+                    }
+                    
                     console.log('Using default data instead');
                     this.projectData = this.getDefaultProjects();
                     this.currentProjectId = this.getFirstProjectId();
@@ -2419,13 +2435,41 @@ class TodoApp {
         }
     }
 
+    async refreshToken() {
+        try {
+            const token = localStorage.getItem('todoAppToken');
+            if (!token) return false;
+
+            const response = await fetch('/api/auth/refresh', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('todoAppToken', data.token);
+                console.log('Token refreshed successfully');
+                return true;
+            } else {
+                console.log('Token refresh failed');
+                return false;
+            }
+        } catch (error) {
+            console.error('Error refreshing token:', error);
+            return false;
+        }
+    }
+
     async saveUserData() {
         if (this.currentUser) {
             try {
                 const token = localStorage.getItem('todoAppToken');
                 console.log('Saving user data for user:', this.currentUser.email);
                 console.log('Data to save:', this.projectData);
-                
+
                 const response = await fetch('/api/user/data', {
                     method: 'POST',
                     headers: {
@@ -2436,10 +2480,25 @@ class TodoApp {
                 });
 
                 console.log('Save response status:', response.status);
-                
+
                 if (!response.ok) {
                     const errorData = await response.text();
                     console.error('Failed to save user data. Status:', response.status, 'Error:', errorData);
+                    
+                    // If token is invalid, try to refresh it
+                    if (response.status === 401) {
+                        console.log('Token expired during save, attempting to refresh...');
+                        const refreshResult = await this.refreshToken();
+                        if (refreshResult) {
+                            // Retry with new token
+                            return this.saveUserData();
+                        } else {
+                            // Refresh failed, logout user
+                            console.log('Token refresh failed during save, logging out user');
+                            this.logout();
+                            return;
+                        }
+                    }
                 } else {
                     console.log('User data saved successfully');
                 }
