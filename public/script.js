@@ -23,6 +23,7 @@ class TodoApp {
         this.loadUserSession();
         this.loadNotifications();
         this.checkForInvitationLink();
+        this.checkPendingInvitations();
         // Don't render immediately - wait for user data to load
         
         // Set up periodic cleanup every hour (but not on startup)
@@ -2760,16 +2761,29 @@ class TodoApp {
             return;
         }
 
-        const notificationsHtml = notifications.map(notification => `
-            <div class="notification-item ${!notification.read ? 'unread' : ''}" onclick="app.markNotificationRead('${notification.id}')">
-                <div class="notification-content">
-                    <div class="notification-title">${notification.title}</div>
-                    <div class="notification-message">${notification.message}</div>
-                    <div class="notification-time">${new Date(notification.created_at).toLocaleString()}</div>
+        const notificationsHtml = notifications.map(notification => {
+            const isInvitation = notification.type === 'project_invitation';
+            const hasActions = notification.data && notification.data.actions;
+            
+            return `
+                <div class="notification-item ${!notification.read ? 'unread' : ''}">
+                    <div class="notification-content" onclick="app.markNotificationRead('${notification.id}')">
+                        <div class="notification-title">${notification.title}</div>
+                        <div class="notification-message">${notification.message}</div>
+                        <div class="notification-time">${new Date(notification.created_at).toLocaleString()}</div>
+                    </div>
+                    <div class="notification-actions">
+                        ${!notification.read ? '<div class="notification-dot"></div>' : ''}
+                        ${isInvitation && hasActions ? `
+                            <div class="invitation-actions">
+                                <button class="btn btn-sm btn-success" onclick="app.acceptInvitation('${notification.id}')">Accept</button>
+                                <button class="btn btn-sm btn-secondary" onclick="app.declineInvitation('${notification.id}')">Decline</button>
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
-                ${!notification.read ? '<div class="notification-dot"></div>' : ''}
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         panel.innerHTML = `
             <div class="notification-header">
@@ -2791,20 +2805,54 @@ class TodoApp {
         if (inviteToken) {
             console.log('Invitation link detected:', inviteToken);
             
-            // Create a notification for the invitation
-            this.createNotification({
-                type: 'project_invitation',
-                title: 'Project Invitation',
-                message: 'You have been invited to collaborate on a project',
-                data: { invitationToken: inviteToken }
-            });
+            // Store the invitation token for later use
+            localStorage.setItem('pendingInvitation', inviteToken);
+            
+            // If user is logged in, create notification immediately
+            if (this.currentUser) {
+                this.createInvitationNotification(inviteToken);
+            } else {
+                // If not logged in, show a message and store for later
+                this.showInvitationPrompt(inviteToken);
+            }
             
             // Clean up the URL
             const newUrl = window.location.pathname;
             window.history.replaceState({}, document.title, newUrl);
             
-            console.log('Invitation notification created');
+            console.log('Invitation processed');
         }
+    }
+
+    showInvitationPrompt(inviteToken) {
+        // Show a modal or alert about the invitation
+        const message = `You have been invited to collaborate on a project!\n\nPlease log in or sign up to accept this invitation.`;
+        alert(message);
+        
+        // Store the invitation for when they log in
+        console.log('Invitation stored for later processing');
+    }
+
+    checkPendingInvitations() {
+        // Check if there's a pending invitation after user logs in
+        const pendingInvitation = localStorage.getItem('pendingInvitation');
+        if (pendingInvitation && this.currentUser) {
+            console.log('Processing pending invitation:', pendingInvitation);
+            this.createInvitationNotification(pendingInvitation);
+            localStorage.removeItem('pendingInvitation');
+        }
+    }
+
+    createInvitationNotification(inviteToken) {
+        this.createNotification({
+            type: 'project_invitation',
+            title: 'Project Invitation',
+            message: 'You have been invited to collaborate on a project',
+            data: { 
+                invitationToken: inviteToken,
+                actions: ['accept', 'decline']
+            }
+        });
     }
 
     createNotification(notificationData) {
@@ -2853,6 +2901,58 @@ class TodoApp {
             }
         } catch (error) {
             console.error('Error marking notification as read:', error);
+        }
+    }
+
+    async acceptInvitation(notificationId) {
+        const notification = this.notifications.find(n => n.id === notificationId);
+        if (!notification || !notification.data || !notification.data.invitationToken) {
+            console.error('Invalid invitation notification');
+            return;
+        }
+
+        try {
+            console.log('Accepting invitation:', notification.data.invitationToken);
+            
+            // For now, just show a success message
+            // In a real app, this would call an API to accept the invitation
+            alert('Invitation accepted! You are now a collaborator on this project.');
+            
+            // Mark notification as read and remove it
+            this.notifications = this.notifications.filter(n => n.id !== notificationId);
+            localStorage.setItem(`notifications_${this.currentUser.id}`, JSON.stringify(this.notifications));
+            
+            this.updateNotificationBadge();
+            this.renderNotifications();
+            
+        } catch (error) {
+            console.error('Error accepting invitation:', error);
+            alert('Failed to accept invitation. Please try again.');
+        }
+    }
+
+    async declineInvitation(notificationId) {
+        const notification = this.notifications.find(n => n.id === notificationId);
+        if (!notification) {
+            console.error('Invalid notification');
+            return;
+        }
+
+        try {
+            console.log('Declining invitation:', notification.data?.invitationToken);
+            
+            // Mark notification as read and remove it
+            this.notifications = this.notifications.filter(n => n.id !== notificationId);
+            localStorage.setItem(`notifications_${this.currentUser.id}`, JSON.stringify(this.notifications));
+            
+            this.updateNotificationBadge();
+            this.renderNotifications();
+            
+            alert('Invitation declined.');
+            
+        } catch (error) {
+            console.error('Error declining invitation:', error);
+            alert('Failed to decline invitation. Please try again.');
         }
     }
 
