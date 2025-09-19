@@ -17,13 +17,13 @@ class TodoApp {
         this.selectedProjects = new Set();
         this.lastSelectedProject = null;
         this.historyData = this.getHistoryData();
+        this.isInitialized = false; // Flag to prevent saves during initialization
         
         this.initializeEventListeners();
         this.loadUserSession();
-        this.cleanupOldCompletedTasks(); // Run cleanup on startup
         this.render();
         
-        // Set up periodic cleanup every hour
+        // Set up periodic cleanup every hour (but not on startup)
         setInterval(() => {
             this.cleanupOldCompletedTasks();
         }, 60 * 60 * 1000); // 1 hour
@@ -1690,7 +1690,14 @@ class TodoApp {
         console.log('=== SAVE TO STORAGE CALLED ===');
         console.log('saveToStorage called, currentUser:', this.currentUser);
         console.log('Current projectData:', this.projectData);
+        console.log('Is initialized:', this.isInitialized);
         console.log('Call stack:', new Error().stack);
+        
+        // Don't save during initialization
+        if (!this.isInitialized) {
+            console.log('Skipping save - app not yet initialized');
+            return;
+        }
         
         if (this.currentUser) {
             // Only save if we have actual data to save
@@ -2428,11 +2435,20 @@ class TodoApp {
                     this.projectData = this.getDefaultProjects();
                     this.currentProjectId = this.getFirstProjectId();
                 }
+                
+                // Mark as initialized after data is loaded
+                this.isInitialized = true;
+                console.log('App marked as initialized');
+                
+                // Now run cleanup after data is loaded
+                this.cleanupOldCompletedTasks();
+                
                 console.log('=== LOAD USER DATA COMPLETED ===');
             } catch (error) {
                 console.error('Error loading user data:', error);
                 this.projectData = this.getDefaultProjects();
                 this.currentProjectId = this.getFirstProjectId();
+                this.isInitialized = true;
             }
             this.render();
         }
