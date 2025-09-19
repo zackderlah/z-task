@@ -1687,13 +1687,24 @@ class TodoApp {
     }
 
     saveToStorage() {
+        console.log('=== SAVE TO STORAGE CALLED ===');
         console.log('saveToStorage called, currentUser:', this.currentUser);
+        console.log('Current projectData:', this.projectData);
+        console.log('Call stack:', new Error().stack);
+        
         if (this.currentUser) {
             // Only save if we have actual data to save
             const hasData = this.projectData && (
                 (this.projectData.folders && this.projectData.folders.length > 0) ||
                 (this.projectData.uncategorized && this.projectData.uncategorized.length > 0)
             );
+            
+            console.log('Has data check:', hasData);
+            console.log('Data structure:', {
+                projectData: this.projectData,
+                folders: this.projectData?.folders,
+                uncategorized: this.projectData?.uncategorized
+            });
             
             if (hasData) {
                 console.log('Calling saveUserData for authenticated user');
@@ -2395,6 +2406,7 @@ class TodoApp {
     async loadUserData() {
         if (this.currentUser) {
             try {
+                console.log('=== LOAD USER DATA CALLED ===');
                 console.log('Loading user data for user:', this.currentUser.email);
                 console.log('User ID:', this.currentUser.id);
 
@@ -2405,8 +2417,10 @@ class TodoApp {
                 if (response.ok) {
                     const data = await response.json();
                     console.log('Loaded user data:', data);
+                    console.log('Setting projectData to:', data);
                     this.projectData = data;
                     this.currentProjectId = this.getFirstProjectId();
+                    console.log('After setting - projectData is now:', this.projectData);
                 } else {
                     const errorData = await response.text();
                     console.error('Failed to load user data. Status:', response.status, 'Error:', errorData);
@@ -2414,6 +2428,7 @@ class TodoApp {
                     this.projectData = this.getDefaultProjects();
                     this.currentProjectId = this.getFirstProjectId();
                 }
+                console.log('=== LOAD USER DATA COMPLETED ===');
             } catch (error) {
                 console.error('Error loading user data:', error);
                 this.projectData = this.getDefaultProjects();
@@ -2454,9 +2469,16 @@ class TodoApp {
     async saveUserData() {
         if (this.currentUser) {
             try {
+                console.log('=== SAVE USER DATA CALLED ===');
                 console.log('Saving user data for user:', this.currentUser.email);
                 console.log('User ID:', this.currentUser.id);
                 console.log('Data to save:', this.projectData);
+                console.log('Data structure check:', {
+                    hasFolders: !!(this.projectData && this.projectData.folders),
+                    foldersLength: this.projectData?.folders?.length || 0,
+                    hasUncategorized: !!(this.projectData && this.projectData.uncategorized),
+                    uncategorizedLength: this.projectData?.uncategorized?.length || 0
+                });
 
                 const response = await fetch('/api/user/simple-data', {
                     method: 'POST',
@@ -2477,6 +2499,7 @@ class TodoApp {
                 } else {
                     console.log('User data saved successfully');
                 }
+                console.log('=== SAVE USER DATA COMPLETED ===');
             } catch (error) {
                 console.error('Error saving user data:', error);
             }
