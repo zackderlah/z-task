@@ -1695,7 +1695,7 @@ class TodoApp {
         if (this.currentUser) {
             // Only save if we have actual data to save
             const hasData = this.projectData && (
-                (this.projectData.folders && this.projectData.folders.length > 0) ||
+                (this.projectData.folders && this.projectData.folders.some(folder => folder.projects && folder.projects.length > 0)) ||
                 (this.projectData.uncategorized && this.projectData.uncategorized.length > 0)
             );
             
