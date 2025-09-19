@@ -21,7 +21,7 @@ class TodoApp {
         
         this.initializeEventListeners();
         this.loadUserSession();
-        this.render();
+        // Don't render immediately - wait for user data to load
         
         // Set up periodic cleanup every hour (but not on startup)
         setInterval(() => {
@@ -2450,6 +2450,11 @@ class TodoApp {
                 this.currentProjectId = this.getFirstProjectId();
                 this.isInitialized = true;
             }
+            
+            // Render after data is loaded
+            this.render();
+        } else {
+            // No user logged in, render immediately with default data
             this.render();
         }
     }
@@ -2563,11 +2568,35 @@ class TodoApp {
             return;
         }
         
-        // User is authenticated, show main content
+        // Show loading indicator if not initialized yet
+        if (!this.isInitialized) {
+            this.showLoadingIndicator();
+            return;
+        }
+        
+        // User is authenticated and initialized, show main content
         this.showMainContent();
         this.renderProjects();
         this.renderColumns();
         this.updateCurrentProjectName();
+    }
+    
+    showLoadingIndicator() {
+        const appBody = document.querySelector('.app-body');
+        if (appBody) {
+            appBody.innerHTML = `
+                <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; color: var(--text-color);">
+                    <div style="font-size: 24px; margin-bottom: 16px;">Loading your projects...</div>
+                    <div style="width: 40px; height: 40px; border: 4px solid var(--border-color); border-top: 4px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                </div>
+                <style>
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                </style>
+            `;
+        }
     }
 
     // History Methods
