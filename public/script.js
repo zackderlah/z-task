@@ -22,8 +22,6 @@ class TodoApp {
         this.initializeEventListeners();
         this.loadUserSession();
         this.loadNotifications();
-        this.checkForInvitationLink();
-        this.checkPendingInvitations();
         // Don't render immediately - wait for user data to load
         
         // Set up periodic cleanup every hour (but not on startup)
@@ -2506,6 +2504,10 @@ class TodoApp {
                 // Now run cleanup after data is loaded
                 this.cleanupOldCompletedTasks();
                 
+                // Check for invitation links and pending invitations after user is loaded
+                this.checkForInvitationLink();
+                this.checkPendingInvitations();
+                
                 console.log('=== LOAD USER DATA COMPLETED ===');
             } catch (error) {
                 console.error('Error loading user data:', error);
@@ -2519,6 +2521,9 @@ class TodoApp {
         } else {
             // No user logged in, render immediately with default data
             this.render();
+            
+            // Check for invitation links even when not logged in
+            this.checkForInvitationLink();
         }
     }
 
@@ -2827,19 +2832,29 @@ class TodoApp {
     }
 
     checkForInvitationLink() {
+        console.log('=== CHECKING FOR INVITATION LINK ===');
+        console.log('Current URL:', window.location.href);
+        console.log('Current user:', this.currentUser);
+        
         const urlParams = new URLSearchParams(window.location.search);
         const inviteToken = urlParams.get('invite');
+        
+        console.log('URL params:', window.location.search);
+        console.log('Invite token:', inviteToken);
         
         if (inviteToken) {
             console.log('Invitation link detected:', inviteToken);
             
             // Store the invitation token for later use
             localStorage.setItem('pendingInvitation', inviteToken);
+            console.log('Invitation stored in localStorage');
             
             // If user is logged in, create notification immediately
             if (this.currentUser) {
+                console.log('User is logged in, creating notification immediately');
                 this.createInvitationNotification(inviteToken);
             } else {
+                console.log('User not logged in, showing prompt and storing for later');
                 // If not logged in, show a message and store for later
                 this.showInvitationPrompt(inviteToken);
             }
@@ -2847,9 +2862,13 @@ class TodoApp {
             // Clean up the URL
             const newUrl = window.location.pathname;
             window.history.replaceState({}, document.title, newUrl);
+            console.log('URL cleaned up:', newUrl);
             
             console.log('Invitation processed');
+        } else {
+            console.log('No invitation token found in URL');
         }
+        console.log('=== INVITATION LINK CHECK COMPLETED ===');
     }
 
     showInvitationPrompt(inviteToken) {
@@ -2862,13 +2881,22 @@ class TodoApp {
     }
 
     checkPendingInvitations() {
+        console.log('=== CHECKING PENDING INVITATIONS ===');
+        console.log('Current user:', this.currentUser);
+        
         // Check if there's a pending invitation after user logs in
         const pendingInvitation = localStorage.getItem('pendingInvitation');
+        console.log('Pending invitation from localStorage:', pendingInvitation);
+        
         if (pendingInvitation && this.currentUser) {
             console.log('Processing pending invitation:', pendingInvitation);
             this.createInvitationNotification(pendingInvitation);
             localStorage.removeItem('pendingInvitation');
+            console.log('Pending invitation processed and removed from localStorage');
+        } else {
+            console.log('No pending invitation to process');
         }
+        console.log('=== PENDING INVITATIONS CHECK COMPLETED ===');
     }
 
     createInvitationNotification(inviteToken) {
