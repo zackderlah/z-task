@@ -21,6 +21,7 @@ class TodoApp {
         
         this.initializeEventListeners();
         this.loadUserSession();
+        this.loadNotifications();
         // Don't render immediately - wait for user data to load
         
         // Set up periodic cleanup every hour (but not on startup)
@@ -412,6 +413,12 @@ class TodoApp {
                     this.sendInvitation();
                 }
             });
+        }
+
+        // Notification button event listener
+        const notificationBtn = document.querySelector('.notification-btn');
+        if (notificationBtn) {
+            notificationBtn.addEventListener('click', () => this.showNotificationPanel());
         }
 
         // Authentication event listeners
@@ -1448,7 +1455,7 @@ class TodoApp {
         document.getElementById('invitationModal').classList.remove('show');
     }
 
-    sendInvitation() {
+    async sendInvitation() {
         const email = document.getElementById('inviteEmailInput').value.trim();
         const permissions = document.getElementById('permissionsSelect').value;
         
@@ -1468,11 +1475,45 @@ class TodoApp {
             return;
         }
 
-        // For now, just show a success message
-        // In a real app, this would send an actual invitation
-        alert(`Invitation sent to ${email} for project "${project.name}" with ${permissions} permissions`);
-        
-        this.hideInviteModal();
+        try {
+            console.log('Sending invitation:', { email, permissions, projectId: project.id, userId: this.currentUser.id });
+
+            const response = await fetch('/api/projects/invite', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    projectId: project.id,
+                    email: email,
+                    permissions: permissions,
+                    userId: this.currentUser.id
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.text();
+                console.error('Failed to send invitation:', errorData);
+                alert('Failed to send invitation. Please try again.');
+                return;
+            }
+
+            const result = await response.json();
+            console.log('Invitation sent successfully:', result);
+
+            // Show success message with invitation link
+            alert(`Invitation sent to ${email}!\n\nInvitation link: ${result.invitationLink}`);
+            
+            // Clear the form
+            document.getElementById('inviteEmailInput').value = '';
+            document.getElementById('permissionsSelect').value = 'view,edit';
+            
+            this.hideInviteModal();
+
+        } catch (error) {
+            console.error('Error sending invitation:', error);
+            alert('Failed to send invitation. Please try again.');
+        }
     }
 
     saveTaskDetails() {
@@ -2596,6 +2637,130 @@ class TodoApp {
                     }
                 </style>
             `;
+        }
+    }
+
+    async loadNotifications() {
+        if (!this.currentUser) return;
+
+        try {
+            const response = await fetch(`/api/notifications?userId=${this.currentUser.id}`);
+            if (response.ok) {
+                const notifications = await response.json();
+                this.notifications = notifications;
+                this.updateNotificationBadge();
+                console.log('Loaded notifications:', notifications.length);
+            }
+        } catch (error) {
+            console.error('Error loading notifications:', error);
+        }
+    }
+
+    updateNotificationBadge() {
+        const notificationBtn = document.querySelector('.notification-btn');
+        if (!notificationBtn) return;
+
+        const unreadCount = this.notifications ? this.notifications.filter(n => !n.read).length : 0;
+        let badge = notificationBtn.querySelector('.notification-badge');
+        
+        if (unreadCount > 0) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'notification-badge';
+                notificationBtn.appendChild(badge);
+            }
+            badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+            badge.style.display = 'block';
+        } else if (badge) {
+            badge.style.display = 'none';
+        }
+    }
+
+    showNotificationPanel() {
+        const panel = document.getElementById('notificationPanel');
+        if (!panel) return;
+
+        panel.style.display = 'block';
+        this.renderNotifications();
+    }
+
+    hideNotificationPanel() {
+        const panel = document.getElementById('notificationPanel');
+        if (panel) {
+            panel.style.display = 'none';
+        }
+    }
+
+    renderNotifications() {
+        const panel = document.getElementById('notificationPanel');
+        if (!panel) return;
+
+        const notifications = this.notifications || [];
+        
+        if (notifications.length === 0) {
+            panel.innerHTML = `
+                <div class="notification-header">
+                    <h3>Notifications</h3>
+                    <button class="close-btn" onclick="app.hideNotificationPanel()">&times;</button>
+                </div>
+                <div class="notification-content">
+                    <p style="text-align: center; color: var(--text-secondary); padding: 20px;">No notifications yet</p>
+                </div>
+            `;
+            return;
+        }
+
+        const notificationsHtml = notifications.map(notification => `
+            <div class="notification-item ${!notification.read ? 'unread' : ''}" onclick="app.markNotificationRead('${notification.id}')">
+                <div class="notification-content">
+                    <div class="notification-title">${notification.title}</div>
+                    <div class="notification-message">${notification.message}</div>
+                    <div class="notification-time">${new Date(notification.created_at).toLocaleString()}</div>
+                </div>
+                ${!notification.read ? '<div class="notification-dot"></div>' : ''}
+            </div>
+        `).join('');
+
+        panel.innerHTML = `
+            <div class="notification-header">
+                <h3>Notifications</h3>
+                <button class="close-btn" onclick="app.hideNotificationPanel()">&times;</button>
+            </div>
+            <div class="notification-content">
+                <div class="notification-list">
+                    ${notificationsHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    async markNotificationRead(notificationId) {
+        if (!this.currentUser) return;
+
+        try {
+            const response = await fetch('/api/notifications', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userId: this.currentUser.id,
+                    notificationId: notificationId
+                })
+            });
+
+            if (response.ok) {
+                // Update local notifications
+                const notification = this.notifications.find(n => n.id === notificationId);
+                if (notification) {
+                    notification.read = true;
+                    notification.read_at = new Date().toISOString();
+                }
+                this.updateNotificationBadge();
+                this.renderNotifications();
+            }
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
         }
     }
 

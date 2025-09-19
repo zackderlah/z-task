@@ -2057,6 +2057,34 @@ body.light-theme .task-detail-field textarea::placeholder {
     overflow: hidden;
 }
 
+/* Notification Badge */
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff4757;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    padding: 2px;
+}
+
+.notification-dot {
+    width: 8px;
+    height: 8px;
+    background: #ff4757;
+    border-radius: 50%;
+    margin-left: 10px;
+    flex-shrink: 0;
+}
+
 .notification-header {
     padding: 15px;
     border-bottom: 1px solid var(--border-color);
