@@ -57,28 +57,38 @@ module.exports = async (req, res) => {
             try {
                 const userData = req.body.data;
                 console.log('Saving user data for user:', userId);
+                console.log('Data to save:', JSON.stringify(userData, null, 2));
 
                 // Delete existing data first
-                await supabase
+                const { error: deleteError } = await supabase
                     .from('user_data')
                     .delete()
                     .eq('user_id', userId);
 
+                if (deleteError) {
+                    console.error('Error deleting existing data:', deleteError);
+                    // Continue anyway, might not exist
+                } else {
+                    console.log('Existing data deleted successfully');
+                }
+
                 // Insert new data
-                const { error } = await supabase
+                const { data: insertData, error: insertError } = await supabase
                     .from('user_data')
                     .insert({
                         user_id: userId,
                         data: userData
-                    });
+                    })
+                    .select();
 
-                if (error) {
-                    console.error('Error saving user data:', error);
-                    return res.status(500).json({ error: 'Failed to save data', details: error.message });
+                if (insertError) {
+                    console.error('Error saving user data:', insertError);
+                    return res.status(500).json({ error: 'Failed to save data', details: insertError.message });
                 }
 
                 console.log('User data saved successfully for user:', userId);
-                res.json({ message: 'Data saved successfully' });
+                console.log('Inserted data:', insertData);
+                res.json({ message: 'Data saved successfully', insertedData: insertData });
 
             } catch (error) {
                 console.error('Error saving data:', error);
