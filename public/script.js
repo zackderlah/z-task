@@ -416,9 +416,12 @@ class TodoApp {
         }
 
         // Notification button event listener
-        const notificationBtn = document.querySelector('.notification-btn');
+        const notificationBtn = document.getElementById('notificationBell');
         if (notificationBtn) {
             notificationBtn.addEventListener('click', () => this.showNotificationPanel());
+            console.log('Notification bell event listener added');
+        } else {
+            console.log('Notification bell not found for event listener');
         }
 
         // Authentication event listeners
@@ -1500,6 +1503,14 @@ class TodoApp {
 
             const result = await response.json();
             console.log('Invitation sent successfully:', result);
+
+            // Create a notification for the invitation
+            this.createNotification({
+                type: 'invitation_sent',
+                title: 'Invitation Sent',
+                message: `Invitation sent to ${email} for project "${project.name}"`,
+                data: { email, projectId: project.id, invitationLink: result.invitationLink }
+            });
 
             // Show success message with invitation link
             alert(`Invitation sent to ${email}!\n\nInvitation link: ${result.invitationLink}`);
@@ -2644,24 +2655,33 @@ class TodoApp {
         if (!this.currentUser) return;
 
         try {
-            const response = await fetch(`/api/notifications?userId=${this.currentUser.id}`);
-            if (response.ok) {
-                const notifications = await response.json();
-                this.notifications = notifications;
-                this.updateNotificationBadge();
-                console.log('Loaded notifications:', notifications.length);
+            // For now, load notifications from localStorage since the API isn't storing them yet
+            const storedNotifications = localStorage.getItem(`notifications_${this.currentUser.id}`);
+            if (storedNotifications) {
+                this.notifications = JSON.parse(storedNotifications);
+            } else {
+                this.notifications = [];
             }
+            
+            this.updateNotificationBadge();
+            console.log('Loaded notifications from localStorage:', this.notifications.length);
         } catch (error) {
             console.error('Error loading notifications:', error);
+            this.notifications = [];
         }
     }
 
     updateNotificationBadge() {
-        const notificationBtn = document.querySelector('.notification-btn');
-        if (!notificationBtn) return;
+        const notificationBtn = document.getElementById('notificationBell');
+        if (!notificationBtn) {
+            console.log('Notification bell not found');
+            return;
+        }
 
         const unreadCount = this.notifications ? this.notifications.filter(n => !n.read).length : 0;
         let badge = notificationBtn.querySelector('.notification-badge');
+        
+        console.log('Updating notification badge. Unread count:', unreadCount);
         
         if (unreadCount > 0) {
             if (!badge) {
@@ -2670,9 +2690,11 @@ class TodoApp {
                 notificationBtn.appendChild(badge);
             }
             badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-            badge.style.display = 'block';
+            badge.style.display = 'flex';
+            console.log('Badge shown with count:', badge.textContent);
         } else if (badge) {
             badge.style.display = 'none';
+            console.log('Badge hidden');
         }
     }
 
@@ -2734,28 +2756,47 @@ class TodoApp {
         `;
     }
 
+    createNotification(notificationData) {
+        if (!this.currentUser) return;
+
+        const notification = {
+            id: Date.now().toString(),
+            type: notificationData.type,
+            title: notificationData.title,
+            message: notificationData.message,
+            data: notificationData.data,
+            created_at: new Date().toISOString(),
+            read: false
+        };
+
+        // Add to notifications array
+        if (!this.notifications) {
+            this.notifications = [];
+        }
+        this.notifications.unshift(notification); // Add to beginning
+
+        // Save to localStorage
+        localStorage.setItem(`notifications_${this.currentUser.id}`, JSON.stringify(this.notifications));
+
+        // Update badge
+        this.updateNotificationBadge();
+
+        console.log('Notification created:', notification);
+    }
+
     async markNotificationRead(notificationId) {
         if (!this.currentUser) return;
 
         try {
-            const response = await fetch('/api/notifications', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    userId: this.currentUser.id,
-                    notificationId: notificationId
-                })
-            });
-
-            if (response.ok) {
-                // Update local notifications
-                const notification = this.notifications.find(n => n.id === notificationId);
-                if (notification) {
-                    notification.read = true;
-                    notification.read_at = new Date().toISOString();
-                }
+            // Update local notifications
+            const notification = this.notifications.find(n => n.id === notificationId);
+            if (notification) {
+                notification.read = true;
+                notification.read_at = new Date().toISOString();
+                
+                // Save to localStorage
+                localStorage.setItem(`notifications_${this.currentUser.id}`, JSON.stringify(this.notifications));
+                
                 this.updateNotificationBadge();
                 this.renderNotifications();
             }
