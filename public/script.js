@@ -420,7 +420,7 @@ class TodoApp {
         // Notification button event listener
         const notificationBtn = document.getElementById('notificationBell');
         if (notificationBtn) {
-            notificationBtn.addEventListener('click', () => this.showNotificationPanel());
+            notificationBtn.addEventListener('click', () => this.toggleNotificationPanel());
             console.log('Notification bell event listener added');
         } else {
             console.log('Notification bell not found for event listener');
@@ -2709,6 +2709,17 @@ class TodoApp {
         }
     }
 
+    toggleNotificationPanel() {
+        const panel = document.getElementById('notificationPanel');
+        if (!panel) return;
+
+        if (panel.style.display === 'block') {
+            this.hideNotificationPanel();
+        } else {
+            this.showNotificationPanel();
+        }
+    }
+
     showNotificationPanel() {
         const panel = document.getElementById('notificationPanel');
         if (!panel) return;
@@ -2768,6 +2779,14 @@ class TodoApp {
             const notificationsHtml = notifications.map(notification => {
                 const isInvitation = notification.type === 'project_invitation';
                 const hasActions = notification.data && notification.data.actions;
+                
+                console.log('Rendering notification:', {
+                    id: notification.id,
+                    type: notification.type,
+                    isInvitation,
+                    hasActions,
+                    data: notification.data
+                });
                 
                 return `
                     <div class="notification-item ${!notification.read ? 'unread' : ''}">
@@ -2856,7 +2875,7 @@ class TodoApp {
         this.createNotification({
             type: 'project_invitation',
             title: 'Project Invitation',
-            message: 'You have been invited to collaborate on a project',
+            message: 'You have been invited to collaborate on a project. Click Accept to join or Decline to reject.',
             data: { 
                 invitationToken: inviteToken,
                 actions: ['accept', 'decline']
@@ -2931,8 +2950,29 @@ class TodoApp {
         try {
             console.log('Accepting invitation:', notification.data.invitationToken);
             
-            // For now, just show a success message
-            // In a real app, this would call an API to accept the invitation
+            // Call the API to accept the invitation
+            const response = await fetch('/api/invitations/accept', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    invitationToken: notification.data.invitationToken,
+                    userId: this.currentUser.id
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.text();
+                console.error('Failed to accept invitation:', errorData);
+                alert('Failed to accept invitation. Please try again.');
+                return;
+            }
+
+            const result = await response.json();
+            console.log('Invitation accepted successfully:', result);
+            
+            // Show success message
             alert('Invitation accepted! You are now a collaborator on this project.');
             
             // Mark notification as read and remove it
