@@ -1689,9 +1689,18 @@ class TodoApp {
     saveToStorage() {
         console.log('saveToStorage called, currentUser:', this.currentUser);
         if (this.currentUser) {
-            // Save user-specific data
-            console.log('Calling saveUserData for authenticated user');
-            this.saveUserData();
+            // Only save if we have actual data to save
+            const hasData = this.projectData && (
+                (this.projectData.folders && this.projectData.folders.length > 0) ||
+                (this.projectData.uncategorized && this.projectData.uncategorized.length > 0)
+            );
+            
+            if (hasData) {
+                console.log('Calling saveUserData for authenticated user');
+                this.saveUserData();
+            } else {
+                console.log('Skipping save - no data to save');
+            }
         } else {
             // Save global data for non-authenticated users
             const data = {
