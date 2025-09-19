@@ -22,6 +22,7 @@ class TodoApp {
         this.initializeEventListeners();
         this.loadUserSession();
         this.loadNotifications();
+        this.checkForInvitationLink();
         // Don't render immediately - wait for user data to load
         
         // Set up periodic cleanup every hour (but not on startup)
@@ -422,6 +423,15 @@ class TodoApp {
             console.log('Notification bell event listener added');
         } else {
             console.log('Notification bell not found for event listener');
+        }
+
+        // Close notification panel event listener
+        const closeNotificationBtn = document.getElementById('closeNotificationPanel');
+        if (closeNotificationBtn) {
+            closeNotificationBtn.addEventListener('click', () => this.hideNotificationPanel());
+            console.log('Close notification button event listener added');
+        } else {
+            console.log('Close notification button not found for event listener');
         }
 
         // Authentication event listeners
@@ -2704,12 +2714,30 @@ class TodoApp {
 
         panel.style.display = 'block';
         this.renderNotifications();
+        
+        // Add click outside to close
+        setTimeout(() => {
+            document.addEventListener('click', this.handleOutsideClick.bind(this));
+        }, 100);
+    }
+
+    handleOutsideClick(event) {
+        const panel = document.getElementById('notificationPanel');
+        const bell = document.getElementById('notificationBell');
+        
+        if (panel && !panel.contains(event.target) && !bell.contains(event.target)) {
+            this.hideNotificationPanel();
+            document.removeEventListener('click', this.handleOutsideClick.bind(this));
+        }
     }
 
     hideNotificationPanel() {
         const panel = document.getElementById('notificationPanel');
         if (panel) {
             panel.style.display = 'none';
+            console.log('Notification panel hidden');
+        } else {
+            console.log('Notification panel not found');
         }
     }
 
@@ -2754,6 +2782,29 @@ class TodoApp {
                 </div>
             </div>
         `;
+    }
+
+    checkForInvitationLink() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteToken = urlParams.get('invite');
+        
+        if (inviteToken) {
+            console.log('Invitation link detected:', inviteToken);
+            
+            // Create a notification for the invitation
+            this.createNotification({
+                type: 'project_invitation',
+                title: 'Project Invitation',
+                message: 'You have been invited to collaborate on a project',
+                data: { invitationToken: inviteToken }
+            });
+            
+            // Clean up the URL
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+            
+            console.log('Invitation notification created');
+        }
     }
 
     createNotification(notificationData) {
