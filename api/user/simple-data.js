@@ -63,36 +63,25 @@ module.exports = async (req, res) => {
                 console.log('Saving user data for user:', userId);
                 console.log('Data to save:', JSON.stringify(userData, null, 2));
 
-                // Delete existing data first
-                const { error: deleteError } = await supabase
+                // Use upsert to handle both insert and update
+                const { data: upsertData, error: upsertError } = await supabase
                     .from('user_data')
-                    .delete()
-                    .eq('user_id', userId);
-
-                if (deleteError) {
-                    console.error('Error deleting existing data:', deleteError);
-                    // Continue anyway, might not exist
-                } else {
-                    console.log('Existing data deleted successfully');
-                }
-
-                // Insert new data
-                const { data: insertData, error: insertError } = await supabase
-                    .from('user_data')
-                    .insert({
+                    .upsert({
                         user_id: userId,
                         data: userData
+                    }, {
+                        onConflict: 'user_id'
                     })
                     .select();
 
-                if (insertError) {
-                    console.error('Error saving user data:', insertError);
-                    return res.status(500).json({ error: 'Failed to save data', details: insertError.message });
+                if (upsertError) {
+                    console.error('Error saving user data:', upsertError);
+                    return res.status(500).json({ error: 'Failed to save data', details: upsertError.message });
                 }
 
                 console.log('User data saved successfully for user:', userId);
-                console.log('Inserted data:', insertData);
-                res.json({ message: 'Data saved successfully', insertedData: insertData });
+                console.log('Upserted data:', upsertData);
+                res.json({ message: 'Data saved successfully', upsertedData: upsertData });
 
             } catch (error) {
                 console.error('Error saving data:', error);
